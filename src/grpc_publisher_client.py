@@ -1,19 +1,15 @@
 """Publisher gRPC Client"""
 
 import functools
-import logging
-
 import grpc
 
 import publisher_pb2
 import publisher_pb2_grpc
 
 from src.utils import get_configs
+from logutils import get_logger
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger("[Publisher gRPC Client]")
+logger = get_logger(__name__)
 
 
 def get_channel():
