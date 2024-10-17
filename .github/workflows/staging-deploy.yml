@@ -17,15 +17,14 @@ jobs:
         with:
           host: ${{ secrets.HOST }}
           username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
+          key: ${{ secrets.KEY }}
           script: |
             set -e
 
             echo "============================"
             echo "Updating repository ..."
             echo "============================"
-            cd ${{ secrets.ROOT_PATH }}${{ secrets.PROJECT_PATH }}
-            if ! git pull; then
+            if ! assembler clone --branch staging --project gateway-server; then
               echo "❌ Error updating repository!"
               exit 1
             fi
@@ -36,8 +35,7 @@ jobs:
             echo "========================="
             echo "Building project ..."
             echo "========================="
-            cd ${{ secrets.ROOT_PATH }}
-            if ! ${{ secrets.BUILD_CMD }}; then
+            if ! assembler deploy --project gateway-server; then
               echo "❌ Error building project!"
               exit 1
             fi
