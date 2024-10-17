@@ -24,7 +24,7 @@ jobs:
             echo "============================"
             echo "Updating repository ..."
             echo "============================"
-            if ! assembler clone --branch staging --project gateway-server; then
+            if ! assembler clone --branch staging --project gateway_server; then
               echo "❌ Error updating repository!"
               exit 1
             fi
@@ -35,7 +35,7 @@ jobs:
             echo "========================="
             echo "Building project ..."
             echo "========================="
-            if ! assembler deploy --project gateway-server; then
+            if ! assembler deploy --project gateway_server; then
               echo "❌ Error building project!"
               exit 1
             fi
