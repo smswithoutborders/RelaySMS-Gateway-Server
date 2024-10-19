@@ -56,15 +56,15 @@ Get gateway clients with optional filters.
 
 ```json
 [
-	{
-		"country": "Cameroon",
-		"last_published_date": 1714846064,
-		"msisdn": "+xxxxxxxxx",
-		"operator": "OPERATOR",
-		"operator_code": "xxxxxx",
-		"protocols": ["https", "smtp", "ftp"],
-		"reliability": "0.00"
-	}
+  {
+    "country": "Cameroon",
+    "last_published_date": 1714846064,
+    "msisdn": "+xxxxxxxxx",
+    "operator": "OPERATOR",
+    "operator_code": "xxxxxx",
+    "protocols": ["https", "smtp", "ftp"],
+    "reliability": "0.00"
+  }
 ]
 ```
 
@@ -108,15 +108,15 @@ Get reliability tests for a specific gateway client with optional filters.
 
 ```json
 [
-	{
-		"id": 1,
-		"msisdn": "+xxxxxxxxx",
-		"sms_received_time": 1713995252,
-		"sms_routed_time": 1713995260,
-		"sms_sent_time": 1713995250,
-		"start_time": 1715377980,
-		"status": "success"
-	}
+  {
+    "id": 1,
+    "msisdn": "+xxxxxxxxx",
+    "sms_received_time": 1713995252,
+    "sms_routed_time": 1713995260,
+    "sms_sent_time": 1713995250,
+    "start_time": 1715377980,
+    "status": "success"
+  }
 ]
 ```
 
@@ -194,22 +194,26 @@ POST /v3/publish
 
 #### Description
 
-Publish RelaySMS Payload.
+Publishes content payload to either the **bridge server** or directly to the **publisher**, based on the content of the payload.
 
 #### Request Body
 
 ```json
 {
-	"text": "payload content",
-	"address": "+237123456789"
+  "text": "payload content",
+  "address": "+237123456789"
 }
 ```
+
+- **text**: Payload content to be published. The first character determines the type of publishing:
+  - `"0"`: Indicates publishing to the **bridge server**. The rest of the payload (after the first character) will be forwarded to the bridge.
+  - Any other value: Indicates direct publishing to the **publisher**, where the entire payload will be sent as-is.
 
 #### Response
 
 ```json
 {
-	"publisher_response": "encrypted publisher response"
+  "publisher_response": "response"
 }
 ```
 

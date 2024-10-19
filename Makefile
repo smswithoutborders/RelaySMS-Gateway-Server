@@ -18,10 +18,15 @@ $(PROTO_DIR)/%.proto:
 
 publisher-proto: 
 	@rm -f "$(PROTO_DIR)/publisher.proto"
-	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/SMSWithoutBorders-Publisher/main/protos/v1/publisher.proto \
+	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Publisher/main/protos/v1/publisher.proto \
 	$(PROTO_DIR)/publisher.proto
 
-grpc-compile: publisher-proto
+bridge-proto: 
+	@rm -f "$(PROTO_DIR)/bridge.proto"
+	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Bridge-Server/feat/bridge/protos/v1/bridge.proto \
+	$(PROTO_DIR)/bridge.proto
+
+grpc-compile: publisher-proto bridge-proto
 	$(call log_message,INFO - Compiling gRPC protos ...)
 	@$(python) -m grpc_tools.protoc \
 		-I$(PROTO_DIR) \
