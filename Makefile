@@ -1,5 +1,6 @@
 python=python3
 PROTO_DIR=protos/v1
+CURRENT_BRANCH=$(shell git branch --show-current)
 
 define log_message
 	@echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - $1"
@@ -18,12 +19,12 @@ $(PROTO_DIR)/%.proto:
 
 publisher-proto: 
 	@rm -f "$(PROTO_DIR)/publisher.proto"
-	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Publisher/main/protos/v1/publisher.proto \
+	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Publisher/$(CURRENT_BRANCH)/protos/v1/publisher.proto \
 	$(PROTO_DIR)/publisher.proto
 
 bridge-proto: 
 	@rm -f "$(PROTO_DIR)/bridge.proto"
-	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Bridge-Server/feat/bridge/protos/v1/bridge.proto \
+	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Bridge-Server/$(CURRENT_BRANCH)/protos/v1/bridge.proto \
 	$(PROTO_DIR)/bridge.proto
 
 grpc-compile: publisher-proto bridge-proto
