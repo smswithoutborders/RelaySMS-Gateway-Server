@@ -194,28 +194,31 @@ POST /v3/publish
 
 #### Description
 
-Publishes content payload to either the **bridge server** or directly to the **publisher**, based on the content of the payload.
+Publishes content payload to either the **bridge server** or directly to the **publisher**, depending on the content of the payload.
 
 #### Request Body
 
 ```json
 {
-  "text": "payload content",
-  "address": "+237123456789"
+  "text": "base64-encoded payload",
+  "MSISDN": "+237123456789"
 }
 ```
 
-- **text**: Payload content to be published. The first character determines the type of publishing:
-  - `"0"`: Indicates publishing to the **bridge server**. The rest of the payload (after the first character) will be forwarded to the bridge.
-  - Any other value: Indicates direct publishing to the **publisher**, where the entire payload will be sent as-is.
+- **text**: The Base64-encoded payload to be published.
+  - If the first byte of the decoded payload is `0`, the system will treat it as a **bridge server** payload. The remaining bytes (after the first byte) will be forwarded to the bridge server.
+  - If the first byte is not `0`, the system will treat it as a regular payload and send the entire payload directly to the **publisher**.
+- **MSISDN** or **address**: Required field specifying the sender's phone number.
 
 #### Response
 
 ```json
 {
-  "publisher_response": "response"
+  "publisher_response": "response message from publisher or bridge"
 }
 ```
+
+- **publisher_response**: Returns the response message based on the type of publishing (bridge server or publisher).
 
 #### Errors
 

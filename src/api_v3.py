@@ -1,6 +1,7 @@
 """API V3 Blueprint"""
 
 import logging
+import base64
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify
@@ -180,11 +181,18 @@ def publish_relaysms_payload():
     request_data = request.json
     sender = request.json.get("MSISDN") or request.json.get("address")
     payload = request_data["text"]
-    content_switch = payload[0]
 
-    if content_switch == "0":
+    try:
+        payload_bytes = base64.b64decode(payload)
+    except (ValueError, TypeError) as exc:
+        raise BadRequest("Invalid Base64-encoded payload") from exc
+
+    is_bridge_payload = payload_bytes[0] == 0
+
+    if is_bridge_payload:
         publish_response, publish_error = publish_bridge_content(
-            content=payload[1:], phone_number=sender
+            content=base64.b64encode(payload_bytes[1:]).decode("utf-8"),
+            phone_number=sender,
         )
     else:
         publish_response, publish_error = publish_content(
@@ -210,7 +218,7 @@ def publish_relaysms_payload():
         {
             "publisher_response": (
                 publish_response.message
-                if content_switch == "0"
+                if is_bridge_payload
                 else publish_response.publisher_response
             )
         }
