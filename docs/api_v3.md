@@ -200,14 +200,22 @@ Publishes content payload to either the **bridge server** or directly to the **p
 
 ```json
 {
-  "text": "base64-encoded payload",
+  "text": "base64_encoded_payload",
   "MSISDN": "+237123456789"
 }
 ```
 
 - **text**: The Base64-encoded payload to be published.
+
   - If the first byte of the decoded payload is `0`, the system will treat it as a **bridge server** payload. The remaining bytes (after the first byte) will be forwarded to the bridge server.
+
+  ```python
+  publish_payload = bytes([0]) + b"encrypted content"
+  base64_encoded_payload = base64.b64encode(publish_payload).decode("utf-8")
+  ```
+
   - If the first byte is not `0`, the system will treat it as a regular payload and send the entire payload directly to the **publisher**.
+
 - **MSISDN** or **address**: Required field specifying the sender's phone number.
 
 #### Response
