@@ -42,9 +42,7 @@ grpc-compile: publisher-proto bridge-proto
 start-rest-api:
 	@(\
 		echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - INFO - Starting REST API ..." && \
-		mod_wsgi-express start-server wsgi_script.py \
-			--user www-data \
-			--group www-data \
+		mod_wsgi-express start-server wsgi.py \
 			--port '${PORT}' \
 			--ssl-certificate-file '${SSL_CERTIFICATE}' \
 			--ssl-certificate-key-file '${SSL_KEY}' \
