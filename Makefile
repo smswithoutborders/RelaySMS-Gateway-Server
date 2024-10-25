@@ -17,6 +17,8 @@ $(PROTO_DIR)/%.proto:
 	$(eval PROTO_URL := $(PROTO_URL))
 	$(call download-proto)
 
+setup: grpc-compile start-rest-api
+
 publisher-proto: 
 	@rm -f "$(PROTO_DIR)/publisher.proto"
 	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Publisher/$(CURRENT_BRANCH)/protos/v1/publisher.proto \
@@ -37,3 +39,18 @@ grpc-compile: publisher-proto bridge-proto
 		$(PROTO_DIR)/*.proto
 	$(call log_message,INFO - gRPC Compilation complete!)
 	
+start-rest-api:
+	@(\
+		echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - INFO - Starting REST API ..." && \
+		mod_wsgi-express start-server wsgi_script.py \
+			--user www-data \
+			--group www-data \
+			--port '${PORT}' \
+			--ssl-certificate-file '${SSL_CERTIFICATE}' \
+			--ssl-certificate-key-file '${SSL_KEY}' \
+			--ssl-certificate-chain-file '${SSL_PEM}' \
+			--https-only \
+			--server-name '${HOST}' \
+			--https-port '${SSL_PORT}' \
+			--log-to-terminal; \
+	)
