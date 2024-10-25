@@ -34,6 +34,10 @@ class LoggingMiddleware:
         """
         request_method = environ["REQUEST_METHOD"]
         path_info = environ["PATH_INFO"]
+        query_string = environ.get("QUERY_STRING", "")
+
+        if query_string:
+            path_info += f"?{query_string}"
 
         logger.debug("Incoming request: %s %s", request_method, path_info)
 
