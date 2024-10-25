@@ -1,9 +1,5 @@
 """WSGI script for running the application."""
 
-from logutils import get_logger
-
-logger = get_logger(__name__)
-
 from src.main import app as application
 
 
@@ -23,15 +19,13 @@ class LoggingMiddleware:
         if query_string:
             path_info += f"?{query_string}"
 
-        logger.debug("Incoming request: %s %s", request_method, path_info)
-
         def _start_response(status, headers, *args):
             """
             Custom start_response function to log response status.
             """
             server_protocol = environ.get("SERVER_PROTOCOL", "-")
             log_msg = f'"{request_method} {path_info} {server_protocol}" {status} -'
-            logger.info(log_msg)
+            print(log_msg)
             return start_response(status, headers, *args)
 
         return self.__application(environ, _start_response)
