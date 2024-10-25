@@ -25,4 +25,4 @@ tqdm==4.66.4
 webencodings==0.5.1
 websocket==0.2.1
 websockets==10.4
-Werkzeug==3.0.3
+Werkzeug==3.0.5
