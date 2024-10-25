@@ -10,16 +10,8 @@ RUN apt-get update && \
 	supervisor \
 	git \
 	pkg-config \
-	curl \
-	locales && \
+	curl && \
 	rm -rf /var/lib/apt/lists/*
-
-RUN sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
-	locale-gen
-
-ENV LANG=en_US.UTF-8 \
-	LANGUAGE=en_US:en \
-	LC_ALL=en_US.UTF-8
 
 WORKDIR /
 
