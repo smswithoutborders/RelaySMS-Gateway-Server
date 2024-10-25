@@ -21,7 +21,7 @@ pyOpenSSL==24.2.1
 requests==2.32.3
 six==1.16.0
 SwobBackendPublisher @ git+https://github.com/smswithoutborders/SMSWithoutBorders-BE-Publisher.git@main#egg=SwobBackendPublisher
-tqdm==4.66.4
+tqdm==4.66.5
 webencodings==0.5.1
 websocket==0.2.1
 websockets==13.1
