@@ -46,7 +46,7 @@ rsa==4.9
 six==1.16.0
 SwobBackendPublisher @ git+https://github.com/smswithoutborders/SMSWithoutBorders-BE-Publisher.git@main#egg=SwobBackendPublisher
 tqdm==4.66.4
-typing_extensions==4.10.0
+typing_extensions==4.12.2
 typing-inspect==0.9.0
 uritemplate==4.1.1
 webencodings==0.5.1
