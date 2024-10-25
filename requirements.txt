@@ -18,7 +18,7 @@ pika==1.3.2
 pycryptodome==3.21.0
 pyftpdlib==2.0.1
 pyOpenSSL==24.2.1
-requests==2.32.0
+requests==2.32.3
 six==1.16.0
 SwobBackendPublisher @ git+https://github.com/smswithoutborders/SMSWithoutBorders-BE-Publisher.git@main#egg=SwobBackendPublisher
 tqdm==4.66.4
