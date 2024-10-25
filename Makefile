@@ -42,6 +42,12 @@ grpc-compile: publisher-proto bridge-proto
 start-rest-api:
 	@(\
 		echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - INFO - Starting REST API with TLS ..." && \
-		gunicorn -w 4 -b 0.0.0.0:'${SSL_PORT}' --log-level=info --access-logfile=- \
-		--certfile='${SSL_CERTIFICATE}' --keyfile='${SSL_KEY}' src.main:app; \
+		gunicorn -w 4 -b 0.0.0.0:'${SSL_PORT}' \
+			--log-level=info \
+			--access-logfile=- \
+			--certfile='${SSL_CERTIFICATE}' \
+			--keyfile='${SSL_KEY}' \
+			--preload \
+			--timeout 30 \
+			src.main:app; \
 	)
