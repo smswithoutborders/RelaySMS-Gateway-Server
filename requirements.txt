@@ -9,7 +9,6 @@ grpcio-tools==1.67.0
 gunicorn==23.0.0
 idna==3.10
 imap-tools==1.7.3
-mod_wsgi==5.0.1
 mysqlclient==2.2.5
 mysql-connector-python==9.1.0
 peewee==3.17.7
@@ -25,4 +24,3 @@ tqdm==4.66.5
 webencodings==0.5.1
 websocket==0.2.1
 websockets==13.1
-Werkzeug==3.0.5
