@@ -28,7 +28,7 @@ mod_wsgi==5.0.0
 mypy-extensions==1.0.0
 mysqlclient==2.1.1
 mysql-connector-python==8.0.29
-packaging==24.0
+packaging==24.1
 peewee==3.17.3
 phonenumbers==8.13.35
 pika==1.3.1
