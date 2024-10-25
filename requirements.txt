@@ -9,7 +9,7 @@ grpcio-testing==1.64.0
 grpcio-tools==1.67.0
 idna==3.7
 imap-tools==1.6.0
-mod_wsgi==5.0.0
+mod_wsgi==5.0.1
 mysqlclient==2.1.1
 mysql-connector-python==9.1.0
 peewee==3.17.7
