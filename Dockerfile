@@ -8,6 +8,8 @@ RUN apt-get update && \
 	python3-dev \
 	default-libmysqlclient-dev \
 	supervisor \
+	git \
+	pkg-config \
 	curl && \
 	rm -rf /var/lib/apt/lists/*
 
