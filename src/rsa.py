@@ -7,7 +7,6 @@ from Cryptodome.Signature import pss
 from Crypto import Random
 
 import base64
-import logging
 
 class SecurityRSA:
     def generate_keypair(self, keysize:int = 2048) -> tuple:
