@@ -22,7 +22,7 @@ importlib_metadata==7.0.2
 itsdangerous==2.1.2
 Jinja2==3.1.4
 MarkupSafe==2.1.1
-marshmallow==3.21.1
+marshmallow==3.23.0
 marshmallow-enum==1.5.1
 mod_wsgi==5.0.0
 mypy-extensions==1.0.0
