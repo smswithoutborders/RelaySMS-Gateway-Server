@@ -53,6 +53,6 @@ webencodings==0.5.1
 websocket==0.2.1
 websockets==10.4
 Werkzeug==3.0.3
-zipp==3.19.1
+zipp==3.20.2
 zope.event==4.5.0
 zope.interface==5.5.1
