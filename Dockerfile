@@ -8,7 +8,7 @@ RUN apt-get update && \
 	python3-dev \
 	default-libmysqlclient-dev \
 	supervisor \
-	curl \
+	curl && \
 	rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
