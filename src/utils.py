@@ -31,7 +31,11 @@ def ensure_database_exists(host, user, password, database_name):
         def wrapper(*args, **kwargs):
             try:
                 with mysql.connector.connect(
-                    host=host, user=user, password=password
+                    host=host,
+                    user=user,
+                    password=password,
+                    charset="utf8mb4",
+                    collation="utf8mb4_unicode_ci",
                 ) as connection:
                     with connection.cursor() as cursor:
                         sql = "CREATE DATABASE IF NOT EXISTS " + database_name

@@ -1,6 +1,7 @@
 """API V3 Blueprint"""
 
 import logging
+import base64
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify
@@ -11,6 +12,7 @@ from src import gateway_clients, reliability_tests
 from src.db import connect
 from src.utils import build_link_header
 from src.grpc_publisher_client import publish_content
+from src.bridge_server_grpc_client import publish_bridge_content
 
 v3_blueprint = Blueprint("v3", __name__, url_prefix="/v3")
 CORS(v3_blueprint, expose_headers=["X-Total-Count", "X-Page", "X-Per-Page", "Link"])
@@ -178,9 +180,24 @@ def publish_relaysms_payload():
 
     request_data = request.json
     sender = request.json.get("MSISDN") or request.json.get("address")
-    publish_response, publish_error = publish_content(
-        content=request_data["text"], sender=sender
-    )
+    payload = request_data["text"]
+
+    try:
+        payload_bytes = base64.b64decode(payload)
+    except (ValueError, TypeError) as exc:
+        raise BadRequest("Invalid Base64-encoded payload") from exc
+
+    is_bridge_payload = payload_bytes[0] == 0
+
+    if is_bridge_payload:
+        publish_response, publish_error = publish_bridge_content(
+            content=base64.b64encode(payload_bytes[1:]).decode("utf-8"),
+            phone_number=sender,
+        )
+    else:
+        publish_response, publish_error = publish_content(
+            content=payload, sender=sender
+        )
 
     if publish_error:
         logger.error(
@@ -197,7 +214,15 @@ def publish_relaysms_payload():
         )
 
     logger.info("Successfully published payload.")
-    return jsonify({"publisher_response": publish_response.publisher_response})
+    return jsonify(
+        {
+            "publisher_response": (
+                publish_response.message
+                if is_bridge_payload
+                else publish_response.publisher_response
+            )
+        }
+    )
 
 
 @v3_blueprint.errorhandler(BadRequest)

@@ -8,7 +8,9 @@ RUN apt-get update && \
 	python3-dev \
 	default-libmysqlclient-dev \
 	supervisor \
-	curl \
+	git \
+	pkg-config \
+	curl && \
 	rm -rf /var/lib/apt/lists/*
 
 WORKDIR /
@@ -16,8 +18,7 @@ WORKDIR /
 COPY . .
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-RUN pip install -U --quiet --no-cache-dir pip setuptools && \
-	pip install --quiet --no-cache-dir --force-reinstall -r requirements.txt 
+RUN pip install --disable-pip-version-check --quiet --no-cache-dir --force-reinstall -r requirements.txt 
 
 ENV MODE=production
 CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

@@ -56,15 +56,15 @@ Get gateway clients with optional filters.
 
 ```json
 [
-	{
-		"country": "Cameroon",
-		"last_published_date": 1714846064,
-		"msisdn": "+xxxxxxxxx",
-		"operator": "OPERATOR",
-		"operator_code": "xxxxxx",
-		"protocols": ["https", "smtp", "ftp"],
-		"reliability": "0.00"
-	}
+  {
+    "country": "Cameroon",
+    "last_published_date": 1714846064,
+    "msisdn": "+xxxxxxxxx",
+    "operator": "OPERATOR",
+    "operator_code": "xxxxxx",
+    "protocols": ["https", "smtp", "ftp"],
+    "reliability": "0.00"
+  }
 ]
 ```
 
@@ -108,15 +108,15 @@ Get reliability tests for a specific gateway client with optional filters.
 
 ```json
 [
-	{
-		"id": 1,
-		"msisdn": "+xxxxxxxxx",
-		"sms_received_time": 1713995252,
-		"sms_routed_time": 1713995260,
-		"sms_sent_time": 1713995250,
-		"start_time": 1715377980,
-		"status": "success"
-	}
+  {
+    "id": 1,
+    "msisdn": "+xxxxxxxxx",
+    "sms_received_time": 1713995252,
+    "sms_routed_time": 1713995260,
+    "sms_sent_time": 1713995250,
+    "start_time": 1715377980,
+    "status": "success"
+  }
 ]
 ```
 
@@ -194,24 +194,39 @@ POST /v3/publish
 
 #### Description
 
-Publish RelaySMS Payload.
+Publishes content payload to either the **bridge server** or directly to the **publisher**, depending on the content of the payload.
 
 #### Request Body
 
 ```json
 {
-	"text": "payload content",
-	"address": "+237123456789"
+  "text": "base64_encoded_payload",
+  "MSISDN": "+237123456789"
 }
 ```
+
+- **text**: The Base64-encoded payload to be published.
+
+  - If the first byte of the decoded payload is `0`, the system will treat it as a **bridge server** payload. The remaining bytes (after the first byte) will be forwarded to the bridge server.
+
+  ```python
+  publish_payload = bytes([0]) + b"encrypted content"
+  base64_encoded_payload = base64.b64encode(publish_payload).decode("utf-8")
+  ```
+
+  - If the first byte is not `0`, the system will treat it as a regular payload and send the entire payload directly to the **publisher**.
+
+- **MSISDN** or **address**: Required field specifying the sender's phone number.
 
 #### Response
 
 ```json
 {
-	"publisher_response": "encrypted publisher response"
+  "publisher_response": "response message from publisher or bridge"
 }
 ```
+
+- **publisher_response**: Returns the response message based on the type of publishing (bridge server or publisher).
 
 #### Errors
 

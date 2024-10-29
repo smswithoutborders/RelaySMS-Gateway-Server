@@ -1,5 +1,6 @@
 python=python3
 PROTO_DIR=protos/v1
+CURRENT_BRANCH=$(shell git branch --show-current)
 
 define log_message
 	@echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - $1"
@@ -20,10 +21,15 @@ setup: grpc-compile start-rest-api
 
 publisher-proto: 
 	@rm -f "$(PROTO_DIR)/publisher.proto"
-	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/SMSWithoutBorders-Publisher/main/protos/v1/publisher.proto \
+	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Publisher/$(CURRENT_BRANCH)/protos/v1/publisher.proto \
 	$(PROTO_DIR)/publisher.proto
 
-grpc-compile: publisher-proto
+bridge-proto: 
+	@rm -f "$(PROTO_DIR)/bridge.proto"
+	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Bridge-Server/$(CURRENT_BRANCH)/protos/v1/bridge.proto \
+	$(PROTO_DIR)/bridge.proto
+
+grpc-compile: publisher-proto bridge-proto
 	$(call log_message,INFO - Compiling gRPC protos ...)
 	@$(python) -m grpc_tools.protoc \
 		-I$(PROTO_DIR) \
@@ -35,16 +41,13 @@ grpc-compile: publisher-proto
 	
 start-rest-api:
 	@(\
-		echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - INFO - Starting REST API ..." && \
-		mod_wsgi-express start-server wsgi_script.py \
-			--user www-data \
-			--group www-data \
-			--port '${PORT}' \
-			--ssl-certificate-file '${SSL_CERTIFICATE}' \
-			--ssl-certificate-key-file '${SSL_KEY}' \
-			--ssl-certificate-chain-file '${SSL_PEM}' \
-			--https-only \
-			--server-name '${HOST}' \
-			--https-port '${SSL_PORT}' \
-			--log-to-terminal; \
+		echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - INFO - Starting REST API with TLS ..." && \
+		gunicorn -w 4 -b 0.0.0.0:'${SSL_PORT}' \
+			--log-level=info \
+			--access-logfile=- \
+			--certfile='${SSL_CERTIFICATE}' \
+			--keyfile='${SSL_KEY}' \
+			--preload \
+			--timeout 30 \
+			src.main:app; \
 	)
