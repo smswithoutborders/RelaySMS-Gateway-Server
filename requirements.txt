@@ -19,7 +19,7 @@ pyftpdlib==2.0.1
 pyOpenSSL==24.2.1
 requests==2.32.3
 SwobBackendPublisher @ git+https://github.com/smswithoutborders/SMSWithoutBorders-BE-Publisher.git@main#egg=SwobBackendPublisher
-tqdm==4.66.5
+tqdm==4.66.6
 webencodings==0.5.1
 websocket==0.2.1
 websockets==13.1
