@@ -1,5 +1,5 @@
 beautifulsoup4==4.12.3
-bleach==6.1.0
+bleach==6.2.0
 email-reply-parser==0.5.12
 Flask==3.0.3
 Flask-Cors==5.0.0
