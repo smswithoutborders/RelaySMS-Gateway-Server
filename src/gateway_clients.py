@@ -49,7 +49,7 @@ def get_all(filters=None, page=None, per_page=None) -> tuple:
         if conditions:
             query = query.where(*conditions).dicts()
 
-    total_records = query.count() if query.exists() else 0
+    total_records = query.count() or 0
 
     if page is not None and per_page is not None:
         query = query.paginate(page, per_page)
