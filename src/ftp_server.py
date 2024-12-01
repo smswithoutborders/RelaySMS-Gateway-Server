@@ -6,20 +6,7 @@ from OpenSSL import SSL
 from pyftpdlib.authorizers import DummyAuthorizer
 from pyftpdlib.servers import FTPServer
 from pyftpdlib.handlers import FTPHandler, TLS_FTPHandler, TLS_DTPHandler
-
-from SwobBackendPublisher import Lib
-
-from src.process_incoming_messages import (
-    process_data,
-    DecryptError,
-    UserNotFoundError,
-    SharedKeyError,
-    InvalidDataError,
-)
-from src import publisher
-
-from src.users import Users
-from src.users_entity import UsersEntity
+from src.payload_service import decode_and_publish
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,42 +26,6 @@ FTP_DIRECTORY = os.environ["FTP_DIRECTORY"]
 SSL_CERTIFICATE = os.environ["SSL_CERTIFICATE"]
 SSL_KEY = os.environ["SSL_KEY"]
 
-# Required for BE-Publisher Lib
-MYSQL_BE_HOST = os.environ.get("MYSQL_BE_HOST", os.environ["MYSQL_HOST"])
-MYSQL_BE_USER = os.environ.get("MYSQL_BE_USER", os.environ["MYSQL_USER"])
-MYSQL_BE_PASSWORD = os.environ.get("MYSQL_BE_PASSWORD", os.environ["MYSQL_PASSWORD"])
-MYSQL_BE_DATABASE = os.environ.get("MYSQL_BE_DATABASE", os.environ["MYSQL_DATABASE"])
-
-# Required for storing user encryption information
-MYSQL_HOST = os.environ.get("MYSQL_HOST", "127.0.0.1")
-MYSQL_USER = os.environ.get("MYSQL_USER", "root")
-MYSQL_PASSWORD = os.environ["MYSQL_PASSWORD"]
-MYSQL_DATABASE = os.environ["MYSQL_DATABASE"]
-
-# Database creations
-users_bepub_entity = UsersEntity(
-    mysql_host=MYSQL_BE_HOST,
-    mysql_user=MYSQL_BE_USER,
-    mysql_password=MYSQL_BE_PASSWORD,
-    mysql_database=MYSQL_BE_DATABASE,
-)
-
-bepub_lib = Lib(users_bepub_entity.db)
-
-users_entity = UsersEntity(
-    mysql_host=MYSQL_HOST,
-    mysql_user=MYSQL_USER,
-    mysql_password=MYSQL_PASSWORD,
-    mysql_database=MYSQL_DATABASE,
-)
-
-users = Users(users_entity)
-
-try:
-    users.create_database_and_tables__()
-except Exception as error:
-    logger.exception(error)
-
 
 def file_received(_, file):
     """Handle file received event.
@@ -87,27 +38,19 @@ def file_received(_, file):
         with open(file, "r", encoding="utf-8") as f:
             content = f.read()
 
-            rmq_connection, rmq_channel = publisher.init_rmq_connections()
+        publisher_response, err = decode_and_publish(content)
 
-            processed_data = process_data(content, bepub_lib, users)
-
-            logger.debug("Encrypted data: %s", processed_data)
-
-            if not publisher.not_active_connection(rmq_connection):
-                rmq_connection, rmq_channel = publisher.init_rmq_connections()
-
-            publisher.publish(channel=rmq_channel, data=processed_data)
-
+        if err:
+            logger.error(err)
             os.remove(file)
+            logger.info("Deleted file %s due to error", file)
+            return
 
-            logger.info("File '%s' content has been queued successfully.", file)
-
-    except (DecryptError, UserNotFoundError, SharedKeyError, InvalidDataError):
+        logger.info({"publisher_response": publisher_response})
         os.remove(file)
-        logger.info("Deleted file %s", file)
 
-    except Exception:
-        logger.error("Failed to process file '%s':", file, exc_info=True)
+    except Exception as exc:
+        logger.error("Failed to process file '%s': %s", file, exc, exc_info=True)
 
 
 def create_ssl_context(certfile, keyfile):

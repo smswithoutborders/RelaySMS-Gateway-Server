@@ -9,7 +9,6 @@ from src.models import GatewayClients
 
 logger = logging.getLogger(__name__)
 
-# pylint: disable=E1101,W0212
 
 database = GatewayClients._meta.database
 
@@ -25,49 +24,51 @@ def get_all(filters=None, page=None, per_page=None) -> tuple:
     Returns:
         tuple: A tuple containing a list of dictionaries containing client data and total_records.
     """
-
     results = []
+    query = GatewayClients.select().dicts()
 
-    with database.atomic():
-        query = GatewayClients.select().dicts()
+    if filters:
+        conditions = []
+        for key, value in filters.items():
+            if value is not None:
+                if key == "country":
+                    conditions.append(
+                        fn.lower(getattr(GatewayClients, key)) == value.lower()
+                    )
+                elif key in ("protocols", "operator"):
+                    conditions.append(
+                        fn.lower(getattr(GatewayClients, key)).contains(value.lower())
+                    )
+                elif key == "last_published_date":
+                    conditions.append(
+                        getattr(GatewayClients, key).truncate("day") == value
+                    )
+                else:
+                    conditions.append(getattr(GatewayClients, key) == value)
 
-        if filters:
-            conditions = []
+        if conditions:
+            query = query.where(*conditions).dicts()
 
-            for key, value in filters.items():
-                if value is not None:
-                    if key == "country":
-                        conditions.append(
-                            fn.lower(getattr(GatewayClients, key)) == value.lower()
-                        )
-                    elif key in ("protocols", "operator"):
-                        conditions.append(
-                            fn.lower(getattr(GatewayClients, key)).contains(
-                                value.lower()
-                            )
-                        )
-                    elif key == "last_published_date":
-                        conditions.append(
-                            getattr(GatewayClients, key).truncate("day") == value
-                        )
-                    else:
-                        conditions.append(getattr(GatewayClients, key) == value)
+    total_records = query.count() if query.exists() else 0
 
-            if conditions:
-                query = query.where(*conditions).dicts()
+    if page is not None and per_page is not None:
+        query = query.paginate(page, per_page)
 
-        total_records = query.count()
+    for client in query:
+        client = {
+            field: (
+                int(value.timestamp())
+                if isinstance(value, datetime.datetime)
+                else value
+            )
+            for field, value in client.items()
+        }
 
-        if page is not None and per_page is not None:
-            query = query.paginate(page, per_page)
+        client["protocols"] = (
+            client.get("protocols", "").split(",") if client.get("protocols") else []
+        )
 
-        for client in query:
-            for field, value in client.items():
-                if isinstance(value, datetime.datetime):
-                    client[field] = int(value.timestamp())
-
-            client["protocols"] = client["protocols"].split(",")
-            results.append(client)
+        results.append(client)
 
     return results, total_records
 
@@ -82,21 +83,24 @@ def get_by_msisdn(msisdn: str) -> dict:
         dict: A dictionary containing client data if a matching client is found,
             or None if no client with the provided MSISDN exists.
     """
-    try:
-        client = (
-            GatewayClients.select().where(GatewayClients.msisdn == msisdn).dicts().get()
-        )
+    client = (
+        GatewayClients.select()
+        .where(GatewayClients.msisdn == msisdn)
+        .dicts()
+        .get_or_none()
+    )
 
-        for field, value in client.items():
-            if isinstance(value, datetime.datetime):
-                client[field] = int(value.timestamp())
-
-        client["protocols"] = client["protocols"].split(",")
-
-        return client
-
-    except DoesNotExist:
+    if not client:
         return None
+
+    client = {
+        field: int(value.timestamp()) if isinstance(value, datetime.datetime) else value
+        for field, value in client.items()
+    }
+
+    client["protocols"] = client.get("protocols", "").split(",")
+
+    return client
 
 
 def update_by_msisdn(msisdn: str, fields: dict) -> bool:

@@ -55,7 +55,7 @@ def connect_to_mysql():
             password=MYSQL_PASSWORD,
             host=MYSQL_HOST,
         )
-        logger.info("Connected to MySQL database successfully.")
+        logger.debug("Connected to MySQL database successfully.")
         return db
     except DatabaseError as error:
         logger.error("Failed to connect to MySQL database: %s", error)

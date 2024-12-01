@@ -49,5 +49,5 @@ start-rest-api:
 			--keyfile='${SSL_KEY}' \
 			--preload \
 			--timeout 30 \
-			src.main:app; \
+			main:app; \
 	)

@@ -4,12 +4,11 @@ import os
 import logging
 from functools import wraps
 from urllib.parse import urlparse, urljoin
+from peewee import DatabaseError
 
-import mysql.connector
+import pymysql
 
 logger = logging.getLogger(__name__)
-
-# pylint: disable=W0212
 
 
 def ensure_database_exists(host, user, password, database_name):
@@ -30,24 +29,27 @@ def ensure_database_exists(host, user, password, database_name):
         @wraps(func)
         def wrapper(*args, **kwargs):
             try:
-                with mysql.connector.connect(
+                connection = pymysql.connect(
                     host=host,
                     user=user,
                     password=password,
                     charset="utf8mb4",
                     collation="utf8mb4_unicode_ci",
-                ) as connection:
-                    with connection.cursor() as cursor:
-                        sql = "CREATE DATABASE IF NOT EXISTS " + database_name
-                        cursor.execute(sql)
+                )
+                with connection.cursor() as cursor:
+                    sql = "CREATE DATABASE IF NOT EXISTS " + database_name
+                    cursor.execute(sql)
 
-                logger.info(
+                logger.debug(
                     "Database %s created successfully (if it didn't exist)",
                     database_name,
                 )
 
-            except mysql.connector.Error as error:
+            except pymysql.MySQLError as error:
                 logger.error("Failed to create database: %s", error)
+
+            finally:
+                connection.close()
 
             return func(*args, **kwargs)
 
@@ -56,19 +58,46 @@ def ensure_database_exists(host, user, password, database_name):
     return decorator
 
 
-def create_tables(models, db):
+def create_tables(models):
     """
-    Creates tables for the given models if they don't exist in the specified database.
+    Creates tables for the given models if they don't
+        exist in their specified database.
 
     Args:
-        models: A list of Peewee Model instances.
-        db: The database instance to create the tables in.
+        models(list): A list of Peewee Model classes.
     """
-    models_to_create = [
-        model for model in models if not db.table_exists(model._meta.table_name)
-    ]
-    if models_to_create:
-        db.create_tables(models_to_create)
+    if not models:
+        logger.warning("No models provided for table creation.")
+        return
+
+    try:
+        databases = {}
+        for model in models:
+            database = model._meta.database
+            if database not in databases:
+                databases[database] = []
+            databases[database].append(model)
+
+        for database, db_models in databases.items():
+            with database.atomic():
+                existing_tables = set(database.get_tables())
+                tables_to_create = [
+                    model
+                    for model in db_models
+                    if model._meta.table_name not in existing_tables
+                ]
+
+                if tables_to_create:
+                    database.create_tables(tables_to_create)
+                    logger.info(
+                        "Created tables: %s",
+                        [model._meta.table_name for model in tables_to_create],
+                    )
+                else:
+                    logger.debug("No new tables to create.")
+
+    except DatabaseError as e:
+        logger.error("An error occurred while creating tables: %s", e)
 
 
 def build_link_header(base_url, page, per_page, total_records):
