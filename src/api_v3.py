@@ -1,7 +1,6 @@
 """API V3 Blueprint"""
 
 import logging
-import base64
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify
@@ -11,8 +10,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from src import gateway_clients, reliability_tests
 from src.db import connect
 from src.utils import build_link_header
-from src.grpc_publisher_client import publish_content
-from src.bridge_server_grpc_client import publish_bridge_content
+from src.payload_service import decode_and_publish
 
 v3_blueprint = Blueprint("v3", __name__, url_prefix="/v3")
 CORS(v3_blueprint, expose_headers=["X-Total-Count", "X-Page", "X-Per-Page", "Link"])
@@ -172,51 +170,13 @@ def get_operators_for_country(country):
 def publish_relaysms_payload():
     """Publishes RelaySMS Payload."""
 
-    if not request.json.get("text"):
-        raise BadRequest("Missing required field: text")
-
-    if not request.json.get("MSISDN") and not request.json.get("address"):
-        raise BadRequest("Missing required field: address or MSISDN")
-
     request_data = request.json
-    sender = request_data.get("MSISDN") or request_data.get("address")
-    payload = request_data["text"]
+    publisher_response, err = decode_and_publish(request_data)
 
-    try:
-        payload_bytes = base64.b64decode(payload)
-    except (ValueError, TypeError) as exc:
-        raise BadRequest("Invalid Base64-encoded payload") from exc
+    if err:
+        raise BadRequest(err)
 
-    is_bridge_payload = payload_bytes[0] == 0
-
-    if is_bridge_payload:
-        publish_response, publish_error = publish_bridge_content(
-            content=base64.b64encode(payload_bytes[1:]).decode("utf-8"),
-            phone_number=sender,
-        )
-    else:
-        publish_response, publish_error = publish_content(
-            content=payload, sender=sender
-        )
-
-    if publish_error:
-        logger.error("✖ gRPC error: %s", publish_error.code())
-        raise BadRequest(publish_error.details())
-
-    if not publish_response.success:
-        logger.error("✖ gRPC error: %s", publish_response.message)
-        raise BadRequest(publish_response.message)
-
-    logger.info("✔ Payload published successfully.")
-    return jsonify(
-        {
-            "publisher_response": (
-                publish_response.message
-                if is_bridge_payload
-                else publish_response.publisher_response
-            )
-        }
-    )
+    return jsonify({"publisher_response": publisher_response})
 
 
 @v3_blueprint.errorhandler(BadRequest)
