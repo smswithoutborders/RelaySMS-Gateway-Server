@@ -4,7 +4,7 @@ email-reply-parser==0.5.12
 Flask==3.1.0
 Flask-Cors==5.0.0
 grpcio==1.70.0
-grpcio-testing==1.69.0
+grpcio-testing==1.70.0
 grpcio-tools==1.70.0
 gunicorn==23.0.0
 idna==3.10
