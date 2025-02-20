@@ -38,7 +38,7 @@ def file_received(_, file):
         with open(file, "r", encoding="utf-8") as f:
             content = f.read()
 
-        publisher_response, err = decode_and_publish(content)
+        publisher_response, err = decode_and_publish(content, "ftp")
 
         if err:
             logger.error(err)

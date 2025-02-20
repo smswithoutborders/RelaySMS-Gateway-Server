@@ -69,7 +69,7 @@ def process_incoming_email(mailbox, email):
     email_uid = email.uid
 
     try:
-        publisher_response, err = decode_and_publish(body)
+        publisher_response, err = decode_and_publish(body, "smtp")
 
         if err:
             logger.error(err)
