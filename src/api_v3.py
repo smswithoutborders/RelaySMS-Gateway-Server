@@ -171,7 +171,7 @@ def publish_relaysms_payload():
     """Publishes RelaySMS Payload."""
 
     request_data = request.json
-    publisher_response, err = decode_and_publish(request_data)
+    publisher_response, err = decode_and_publish(request_data, "http")
 
     if err:
         raise BadRequest(err)
