@@ -25,6 +25,9 @@ IMAP_PASSWORD = os.environ["IMAP_PASSWORD"]
 MAIL_FOLDER = os.environ.get("MAIL_FOLDER", "INBOX")
 SSL_CERTIFICATE = os.environ["SSL_CERTIFICATE"]
 SSL_KEY = os.environ["SSL_KEY"]
+SMTP_ALLOWED_EMAIL_ADDRESSES = set(
+    os.environ.get("SMTP_ALLOWED_EMAIL_ADDRESSES", "").split(",")
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,12 +67,22 @@ def process_incoming_email(mailbox, email):
             to the IMAP server.
         email (imap_tools.MailMessage): An object representing the email message.
     """
-
     body = EmailReplyParser.parse_reply(email.text)
     email_uid = email.uid
+    from_email = email.from_
 
     try:
-        publisher_response, err = decode_and_publish(body)
+        if not from_email:
+            logger.warning("No valid 'From' found. Discarding email.")
+            delete_email(mailbox, email_uid)
+            return
+
+        if from_email not in SMTP_ALLOWED_EMAIL_ADDRESSES:
+            logger.warning("Dropping email from unauthorized sender: %s", from_email)
+            delete_email(mailbox, email_uid)
+            return
+
+        publisher_response, err = decode_and_publish(body, "smtp")
 
         if err:
             logger.error(err)
@@ -80,7 +93,7 @@ def process_incoming_email(mailbox, email):
         delete_email(mailbox, email_uid)
 
     except Exception as e:
-        logger.error("Error processing email %s: %s", email_uid, e)
+        logger.exception("Error processing email %s: %s", email_uid, e)
 
 
 def main():
