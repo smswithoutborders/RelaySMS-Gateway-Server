@@ -178,6 +178,26 @@ def publish_relaysms_payload():
 
     return jsonify({"publisher_response": publisher_response})
 
+@v3_blueprint.route("/clients/tests", methods=["POST"])
+def start_reliability_test():
+    """Start a reliability test for a gateway client."""
+
+    request_data = request.json
+
+    msisdn = request_data.get("msisdn")
+    test_start_time = request_data.get("test_start_time")
+
+    if not msisdn or not test_start_time:
+        raise BadRequest("Both 'msisdn' and 'test_start_time' are required.")
+
+    try:
+        test_start_time = datetime.fromisoformat(test_start_time)
+    except ValueError:
+        raise BadRequest("Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS).")
+
+    return jsonify({"message": "Test started successfully"})
+
+
 
 @v3_blueprint.errorhandler(BadRequest)
 @v3_blueprint.errorhandler(NotFound)
