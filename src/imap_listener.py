@@ -121,7 +121,7 @@ def main():
                             logger.debug("IMAP IDLE responses: %s", responses)
 
                         for msg in mailbox.fetch(
-                            criteria=AND(),
+                            criteria="ALL",
                             bulk=50,
                             mark_seen=False,
                         ):
