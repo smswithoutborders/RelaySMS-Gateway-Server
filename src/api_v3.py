@@ -11,6 +11,7 @@ from src import gateway_clients, reliability_tests
 from src.db import connect
 from src.utils import build_link_header
 from src.payload_service import decode_and_publish
+from src.models import ReliabilityTests, GatewayClients
 
 v3_blueprint = Blueprint("v3", __name__, url_prefix="/v3")
 CORS(v3_blueprint, expose_headers=["X-Total-Count", "X-Page", "X-Per-Page", "Link"])
@@ -178,6 +179,7 @@ def publish_relaysms_payload():
 
     return jsonify({"publisher_response": publisher_response})
 
+
 @v3_blueprint.route("/clients/tests", methods=["POST"])
 def start_reliability_test():
     """Start a reliability test for a gateway client."""
@@ -193,10 +195,16 @@ def start_reliability_test():
     try:
         test_start_time = datetime.fromisoformat(test_start_time)
     except ValueError:
-        raise BadRequest("Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS).")
+        raise BadRequest(
+            "Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+        )
+    try:
+        ReliabilityTests.create(msisdn=msisdn, start_time=test_start_time)
+    except Exception as exc:
+        logger.exception("Failed to save reliability test to the database.")
+        raise BadRequest("Failed to start the reliability test.") from exc
 
     return jsonify({"message": "Test started successfully"})
-
 
 
 @v3_blueprint.errorhandler(BadRequest)

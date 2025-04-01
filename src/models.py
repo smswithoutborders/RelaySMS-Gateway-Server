@@ -36,7 +36,7 @@ class ReliabilityTests(database.Model):
     sms_received_time = DateTimeField(null=True)
     sms_routed_time = DateTimeField(null=True)
     status = CharField(default="pending")
-    msisdn = ForeignKeyField(GatewayClients, column_name="msisdn")
+    msisdn = CharField()
 
     # pylint: disable=R0903
     class Meta:
