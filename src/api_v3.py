@@ -1,6 +1,7 @@
 """API V3 Blueprint"""
 
 import logging
+import uuid
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify
@@ -198,13 +199,21 @@ def start_reliability_test():
         raise BadRequest(
             "Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
         )
+    
     try:
-        ReliabilityTests.create(msisdn=msisdn, start_time=test_start_time)
+        new_test = ReliabilityTests.create(
+            msisdn=msisdn,
+            start_time=test_start_time,
+            status="pending",
+            sms_sent_time=None,
+            sms_received_time=None,
+            sms_routed_time=None,
+        )
     except Exception as exc:
         logger.exception("Failed to save reliability test to the database.")
         raise BadRequest("Failed to start the reliability test.") from exc
 
-    return jsonify({"message": "Test started successfully"})
+    return jsonify({"message": "Test started successfully", "test_id": str(new_test.id)})
 
 
 @v3_blueprint.errorhandler(BadRequest)
