@@ -215,6 +215,55 @@ def start_reliability_test():
 
     return jsonify({"message": "Test started successfully", "test_id": str(new_test.id)})
 
+@v3_blueprint.route("/reliability-tests", methods=["GET"])
+def get_reliability_tests():
+    """Get all reliability tests with optional filters and pagination."""
+
+    try:
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 10))
+        msisdn = request.args.get("msisdn")
+        status = request.args.get("status")
+        start_time = request.args.get("start_time")
+        end_time = request.args.get("end_time")
+
+        if page < 1 or per_page < 1:
+            raise ValueError("Page and per_page must be positive integers.")
+
+        filters = {}
+        if msisdn:
+            filters["msisdn"] = msisdn
+        if status:
+            filters["status"] = status
+        if start_time:
+            try:
+                filters["start_time__gte"] = datetime.fromisoformat(start_time)
+            except ValueError:
+                raise BadRequest("Invalid start_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS).")
+        if end_time:
+            try:
+                filters["start_time__lte"] = datetime.fromisoformat(end_time)
+            except ValueError:
+                raise BadRequest("Invalid end_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS).")
+
+        results, total_records = reliability_tests.get_all(filters, page, per_page)
+
+        response = jsonify(results)
+        response.headers["X-Total-Count"] = str(total_records)
+        response.headers["X-Page"] = str(page)
+        response.headers["X-Per-Page"] = str(per_page)
+
+        link_header = build_link_header(request.base_url, page, per_page, total_records)
+        if link_header:
+            response.headers["Link"] = link_header
+
+        return response
+
+    except ValueError as exc:
+        raise BadRequest(str(exc))
+    except Exception as exc:
+        logger.exception("Failed to fetch reliability tests.")
+        raise BadRequest("An error occurred while fetching reliability tests.") from exc
 
 @v3_blueprint.errorhandler(BadRequest)
 @v3_blueprint.errorhandler(NotFound)

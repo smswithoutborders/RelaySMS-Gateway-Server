@@ -35,11 +35,18 @@ def decode_and_publish(payload, request_origin=None):
 
     encoded_content = payload.get("text")
     sender_id = payload.get("MSISDN") or payload.get("address")
+    date = payload.get("date") 
+    date_sent = payload.get("date_sent") 
+
 
     if not encoded_content:
         return None, "Missing required field: text"
     if not sender_id:
         return None, "Missing required field: address or MSISDN"
+    if not date:
+        return None, "Missing required field: date"
+    if not date_sent:
+        return None, "Missing required field: date_sent"
 
     try:
         decoded_bytes = base64.b64decode(encoded_content)
@@ -63,7 +70,7 @@ def decode_and_publish(payload, request_origin=None):
         )
     else:
         publish_response, publish_error = publish_content(
-            content=encoded_content, sender=sender_id
+            content=encoded_content, sender=sender_id, date=date, date_sent=date_sent
         )
 
     if publish_error:

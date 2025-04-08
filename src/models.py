@@ -37,6 +37,7 @@ class ReliabilityTests(database.Model):
     sms_routed_time = DateTimeField(null=True)
     status = CharField(default="pending")
     msisdn = CharField()
+    reliability_score = DecimalField(max_digits=5, decimal_places=2, null=True)
 
     # pylint: disable=R0903
     class Meta:
