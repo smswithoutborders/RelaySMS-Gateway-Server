@@ -190,8 +190,10 @@ def manage_gateway_client_tests(msisdn):
         except Exception as exc:
             logger.exception("Failed to save reliability test to the database.")
             raise BadRequest("Failed to start the reliability test.") from exc
+        
+        start_time_unix = int(test_start_time.timestamp())
 
-        return jsonify({"message": "Test started successfully", "test_id": str(new_test.id)})
+        return jsonify({"message": "Test started successfully", "test_id": str(new_test.id), "start_time": start_time_unix})
     
     
 @v3_blueprint.route("/clients/countries", methods=["GET"])
