@@ -11,6 +11,7 @@ from src import gateway_clients, reliability_tests
 from src.db import connect
 from src.utils import build_link_header
 from src.payload_service import decode_and_publish
+from src.models import ReliabilityTests, GatewayClients
 
 v3_blueprint = Blueprint("v3", __name__, url_prefix="/v3")
 CORS(v3_blueprint, expose_headers=["X-Total-Count", "X-Page", "X-Per-Page", "Link"])
@@ -114,39 +115,84 @@ def get_gateway_clients():
     return response
 
 
-@v3_blueprint.route("/clients/<string:msisdn>/tests", methods=["GET"])
-def get_gateway_client_tests(msisdn):
-    """Get reliability tests for a specific gateway client with optional filters."""
+@v3_blueprint.route("/clients/<string:msisdn>/tests", methods=["GET", "POST"])
+def manage_gateway_client_tests(msisdn):
+    """Manage reliability tests for a specific gateway client: GET to fetch tests, POST to start a new test."""
 
-    try:
-        page = int(request.args.get("page") or 1)
-        per_page = int(request.args.get("per_page") or 10)
+    if request.method == "GET":
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 10))
+        status = request.args.get("status")
+        start_time = request.args.get("start_time")
+        end_time = request.args.get("end_time")
 
         if page < 1 or per_page < 1:
-            raise ValueError
-    except ValueError as exc:
-        raise BadRequest(
-            "Invalid page or per_page parameter. Must be positive integers."
-        ) from exc
+            raise ValueError("Page and per_page must be positive integers.")
 
-    reliability_tests.update_timed_out_tests_status()
-    client_tests, total_records = reliability_tests.get_tests_for_client(
-        msisdn, page=int(page), per_page=int(per_page)
-    )
+        filters = {"msisdn": msisdn}
+        if status:
+            filters["status"] = status
+        if start_time:
+            try:
+                filters["start_time__gte"] = datetime.fromisoformat(start_time)
+            except ValueError as exc:
+                raise BadRequest(
+                    "Invalid start_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+                ) from exc
+        if end_time:
+            try:
+                filters["start_time__lte"] = datetime.fromisoformat(end_time)
+            except ValueError as exc:
+                raise BadRequest(
+                    "Invalid end_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+                ) from exc
 
-    if client_tests is None:
-        raise NotFound(f"No gateway client found with MSISDN: {msisdn}")
+        results, total_records = reliability_tests.get_all(filters, page, per_page)
 
-    response = jsonify(client_tests)
-    response.headers["X-Total-Count"] = str(total_records)
-    response.headers["X-Page"] = str(page)
-    response.headers["X-Per-Page"] = str(per_page)
+        response = jsonify(results)
+        response.headers["X-Total-Count"] = str(total_records)
+        response.headers["X-Page"] = str(page)
+        response.headers["X-Per-Page"] = str(per_page)
 
-    link_header = build_link_header(request.base_url, page, per_page, total_records)
-    if link_header:
-        response.headers["Link"] = link_header
+        link_header = build_link_header(request.base_url, page, per_page, total_records)
+        if link_header:
+            response.headers["Link"] = link_header
 
-    return response
+        return response
+
+    elif request.method == "POST":
+        test_start_time = request.json.get("test_start_time")
+
+        if not test_start_time:
+            raise BadRequest("The 'test_start_time' field is required.")
+
+        try:
+            test_start_time = datetime.fromisoformat(test_start_time)
+        except ValueError:
+            raise BadRequest(
+                "Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+            )
+
+        gateway_client = GatewayClients.get_or_none(msisdn=msisdn)
+        if not gateway_client:
+            raise NotFound(f"Gateway client with MSISDN {msisdn} not found.")
+
+        new_test = ReliabilityTests.create(
+            msisdn=gateway_client,
+            start_time=test_start_time,
+            status="pending",
+            sms_sent_time=None,
+            sms_received_time=None,
+            sms_routed_time=None,
+        )
+
+        return jsonify(
+            {
+                "message": "Test started successfully.",
+                "test_id": int(new_test.id),
+                "test_start_time": int(test_start_time.timestamp()),
+            }
+        )
 
 
 @v3_blueprint.route("/clients/countries", methods=["GET"])
