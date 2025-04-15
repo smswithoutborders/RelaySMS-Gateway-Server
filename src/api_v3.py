@@ -1,7 +1,6 @@
 """API V3 Blueprint"""
 
 import logging
-import uuid
 from datetime import datetime
 
 from flask import Blueprint, request, jsonify

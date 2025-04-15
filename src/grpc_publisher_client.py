@@ -56,9 +56,11 @@ def grpc_call(func):
 
 
 @grpc_call
-def publish_content(content, sender, date, date_sent, **kwargs):
+def publish_content(content, sender, **kwargs):
     """Request for publishing message to a target platform"""
     stub = kwargs["stub"]
+    date = kwargs["date"]
+    date_sent = kwargs["date_sent"]
     request = publisher_pb2.PublishContentRequest(
         content=content,
         metadata={
