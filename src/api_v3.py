@@ -114,59 +114,55 @@ def get_gateway_clients():
         response.headers["Link"] = link_header
 
     return response
-        
+
+
 @v3_blueprint.route("/clients/<string:msisdn>/tests", methods=["GET", "POST"])
 def manage_gateway_client_tests(msisdn):
     """Manage reliability tests for a specific gateway client: GET to fetch tests, POST to start a new test."""
 
     if request.method == "GET":
-        try:
-            page = int(request.args.get("page", 1))
-            per_page = int(request.args.get("per_page", 10))
-            status = request.args.get("status")
-            start_time = request.args.get("start_time")
-            end_time = request.args.get("end_time")
+        page = int(request.args.get("page", 1))
+        per_page = int(request.args.get("per_page", 10))
+        status = request.args.get("status")
+        start_time = request.args.get("start_time")
+        end_time = request.args.get("end_time")
 
-            if page < 1 or per_page < 1:
-                raise ValueError("Page and per_page must be positive integers.")
+        if page < 1 or per_page < 1:
+            raise ValueError("Page and per_page must be positive integers.")
 
-            filters = {"msisdn": msisdn}
-            if status:
-                filters["status"] = status
-            if start_time:
-                try:
-                    filters["start_time__gte"] = datetime.fromisoformat(start_time)
-                except ValueError:
-                    raise BadRequest("Invalid start_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS).")
-            if end_time:
-                try:
-                    filters["start_time__lte"] = datetime.fromisoformat(end_time)
-                except ValueError:
-                    raise BadRequest("Invalid end_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS).")
+        filters = {"msisdn": msisdn}
+        if status:
+            filters["status"] = status
+        if start_time:
+            try:
+                filters["start_time__gte"] = datetime.fromisoformat(start_time)
+            except ValueError as exc:
+                raise BadRequest(
+                    "Invalid start_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+                ) from exc
+        if end_time:
+            try:
+                filters["start_time__lte"] = datetime.fromisoformat(end_time)
+            except ValueError as exc:
+                raise BadRequest(
+                    "Invalid end_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+                ) from exc
 
-            results, total_records = reliability_tests.get_all(filters, page, per_page)
+        results, total_records = reliability_tests.get_all(filters, page, per_page)
 
-            response = jsonify(results)
-            response.headers["X-Total-Count"] = str(total_records)
-            response.headers["X-Page"] = str(page)
-            response.headers["X-Per-Page"] = str(per_page)
+        response = jsonify(results)
+        response.headers["X-Total-Count"] = str(total_records)
+        response.headers["X-Page"] = str(page)
+        response.headers["X-Per-Page"] = str(per_page)
 
-            link_header = build_link_header(request.base_url, page, per_page, total_records)
-            if link_header:
-                response.headers["Link"] = link_header
+        link_header = build_link_header(request.base_url, page, per_page, total_records)
+        if link_header:
+            response.headers["Link"] = link_header
 
-            return response
-
-        except ValueError as exc:
-            raise BadRequest(str(exc))
-        except Exception as exc:
-            logger.exception("Failed to fetch reliability tests.")
-            raise BadRequest("An error occurred while fetching reliability tests.") from exc
+        return response
 
     elif request.method == "POST":
-        request_data = request.json
-
-        test_start_time = request_data.get("test_start_time")
+        test_start_time = request.json.get("test_start_time")
 
         if not test_start_time:
             raise BadRequest("The 'test_start_time' field is required.")
@@ -178,24 +174,24 @@ def manage_gateway_client_tests(msisdn):
                 "Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
             )
 
-        try:
-            new_test = ReliabilityTests.create(
-                msisdn=msisdn,
-                start_time=test_start_time,
-                status="pending",
-                sms_sent_time=None,
-                sms_received_time=None,
-                sms_routed_time=None,
-            )
-        except Exception as exc:
-            logger.exception("Failed to save reliability test to the database.")
-            raise BadRequest("Failed to start the reliability test.") from exc
-        
-        start_time_unix = int(test_start_time.timestamp())
+        new_test = ReliabilityTests.create(
+            msisdn=msisdn,
+            start_time=test_start_time,
+            status="pending",
+            sms_sent_time=None,
+            sms_received_time=None,
+            sms_routed_time=None,
+        )
 
-        return jsonify({"message": "Test started successfully", "test_id": str(new_test.id), "start_time": start_time_unix})
-    
-    
+        return jsonify(
+            {
+                "message": "Test started successfully.",
+                "test_id": int(new_test.id),
+                "test_start_time": int(test_start_time.timestamp()),
+            }
+        )
+
+
 @v3_blueprint.route("/clients/countries", methods=["GET"])
 def get_all_countries():
     """Get all countries for clients."""
@@ -224,6 +220,7 @@ def publish_relaysms_payload():
         raise BadRequest(err)
 
     return jsonify({"publisher_response": publisher_response})
+
 
 @v3_blueprint.errorhandler(BadRequest)
 @v3_blueprint.errorhandler(NotFound)
