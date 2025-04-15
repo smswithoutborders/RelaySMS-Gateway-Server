@@ -174,8 +174,12 @@ def manage_gateway_client_tests(msisdn):
                 "Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
             )
 
+        gateway_client = GatewayClients.get_or_none(msisdn=msisdn)
+        if not gateway_client:
+            raise NotFound(f"Gateway client with MSISDN {msisdn} not found.")
+
         new_test = ReliabilityTests.create(
-            msisdn=msisdn,
+            msisdn=gateway_client,
             start_time=test_start_time,
             status="pending",
             sms_sent_time=None,
