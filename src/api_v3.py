@@ -167,15 +167,15 @@ def manage_gateway_client_tests(msisdn):
             raise BadRequest("The 'test_start_time' field is required.")
 
         try:
-            test_start_time = datetime.fromisoformat(test_start_time)
+            test_start_time = datetime.fromtimestamp(int(test_start_time))
         except ValueError:
             raise BadRequest(
-                "Invalid 'test_start_time' format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+                "Invalid 'test_start_time' format. Provide a valid epoch time."
             )
 
         gateway_client = GatewayClients.get_or_none(msisdn=msisdn)
         if not gateway_client:
-            raise NotFound(f"Gateway client with MSISDN {msisdn} not found.")
+            return jsonify({"error": "Gateway client not found"})
 
         new_test = ReliabilityTests.create(
             msisdn=gateway_client,
