@@ -161,25 +161,14 @@ def manage_gateway_client_tests(msisdn):
         return response
 
     elif request.method == "POST":
-        test_start_time = request.json.get("test_start_time")
-
-        if not test_start_time:
-            raise BadRequest("The 'test_start_time' field is required.")
-
-        try:
-            test_start_time = datetime.fromtimestamp(int(test_start_time))
-        except ValueError:
-            raise BadRequest(
-                "Invalid 'test_start_time' format. Provide a valid epoch time."
-            )
-
+        """Start a new reliability test for the specified gateway client."""
         gateway_client = GatewayClients.get_or_none(msisdn=msisdn)
         if not gateway_client:
             return jsonify({"error": "Gateway client not found"})
 
         new_test = ReliabilityTests.create(
             msisdn=gateway_client,
-            start_time=test_start_time,
+            start_time=datetime.now(),
             status="pending",
             sms_sent_time=None,
             sms_received_time=None,
@@ -190,7 +179,7 @@ def manage_gateway_client_tests(msisdn):
             {
                 "message": "Test started successfully.",
                 "test_id": int(new_test.id),
-                "test_start_time": int(test_start_time.timestamp()),
+                "start_time": int(start_time.timestamp()),
             }
         )
 
