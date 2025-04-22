@@ -178,7 +178,7 @@ def manage_gateway_client_tests(msisdn):
             {
                 "message": "Test started successfully.",
                 "test_id": int(new_test.id),
-                "test_start_time": int(start_time.timestamp()),
+                "test_start_time": int(new_test.start_time.timestamp()),
             }
         )
 
