@@ -168,7 +168,6 @@ def manage_gateway_client_tests(msisdn):
 
         new_test = ReliabilityTests.create(
             msisdn=gateway_client,
-            start_time=datetime.now(),
             status="pending",
             sms_sent_time=None,
             sms_received_time=None,
@@ -179,7 +178,7 @@ def manage_gateway_client_tests(msisdn):
             {
                 "message": "Test started successfully.",
                 "test_id": int(new_test.id),
-                "start_time": int(start_time.timestamp()),
+                "test_start_time": int(start_time.timestamp()),
             }
         )
 
