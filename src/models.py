@@ -1,15 +1,17 @@
-"""Database Models."""
+"""
+This program is free software: you can redistribute it under the terms
+of the GNU General Public License, v. 3.0. If a copy of the GNU General
+Public License was not distributed with this file, see <https://www.gnu.org/licenses/>.
+"""
 
-from datetime import datetime
-from peewee import CharField, DateTimeField, ForeignKeyField, DecimalField
-
+import datetime
+from peewee import Model, CharField, DateTimeField, DecimalField, ForeignKeyField
 from src.db import connect
-from src.utils import create_tables
 
 database = connect()
 
 
-class GatewayClients(database.Model):
+class GatewayClients(Model):
     """Model representing Gateway Clients."""
 
     msisdn = CharField(primary_key=True)
@@ -18,9 +20,8 @@ class GatewayClients(database.Model):
     operator_code = CharField()
     protocols = CharField()
     reliability = DecimalField(max_digits=5, decimal_places=2, default=0.00)
-    last_published_date = DateTimeField(default=datetime.now)
+    last_published_date = DateTimeField(default=datetime.datetime.now)
 
-    # pylint: disable=R0903
     class Meta:
         """Meta class to define database connection."""
 
@@ -28,10 +29,10 @@ class GatewayClients(database.Model):
         table_name = "gateway_clients"
 
 
-class ReliabilityTests(database.Model):
+class ReliabilityTests(Model):
     """Model representing Gateway Clients Reliability Tests."""
 
-    start_time = DateTimeField(default=datetime.now)
+    start_time = DateTimeField(default=datetime.datetime.now)
     sms_sent_time = DateTimeField(null=True)
     sms_received_time = DateTimeField(null=True)
     sms_routed_time = DateTimeField(null=True)
@@ -40,7 +41,6 @@ class ReliabilityTests(database.Model):
         GatewayClients, column_name="msisdn", backref="reliability_tests"
     )
 
-    # pylint: disable=R0903
     class Meta:
         """Meta class to define database connection."""
 
@@ -48,4 +48,4 @@ class ReliabilityTests(database.Model):
         table_name = "reliability_tests"
 
 
-create_tables([GatewayClients, ReliabilityTests])
+database.create_tables([GatewayClients, ReliabilityTests], safe=True)
