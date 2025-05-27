@@ -2,7 +2,7 @@ beautifulsoup4==4.13.4
 bleach==6.2.0
 email-reply-parser==0.5.12
 Flask==3.1.0
-Flask-Cors==5.0.1
+Flask-Cors==6.0.0
 grpcio==1.70.0
 grpcio-testing==1.70.0
 grpcio-tools==1.70.0
