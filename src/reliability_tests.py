@@ -20,13 +20,20 @@ class PreCommitError(Exception):
     """Custom exception for pre-commit function failures."""
 
 
-def get_all(filters: dict = None, page: int = None, per_page: int = None) -> tuple:
+def get_all(
+    filters: dict = None,
+    page: int = None,
+    per_page: int = None,
+    order_desc: bool = True,
+) -> tuple:
     """Get all reliability tests according to the filters, pagination.
 
     Args:
         filters (dict, optional): A dictionary containing filtering criteria.
         page (int, optional): Page number for pagination.
         per_page (int, optional): Number of records per page for pagination.
+        order_desc (bool, optional): If True, return results in descending order
+            (newest first). Default is True (newest first).
 
     Returns:
         tuple: A tuple containing a list of dictionaries containing reliability
@@ -47,6 +54,11 @@ def get_all(filters: dict = None, page: int = None, per_page: int = None) -> tup
 
             if conditions:
                 query = query.where(*conditions).dicts()
+
+        if order_desc:
+            query = query.order_by(ReliabilityTests.id.desc())
+        else:
+            query = query.order_by(ReliabilityTests.id.asc())
 
         total_records = query.count()
 

@@ -35,9 +35,8 @@ def decode_and_publish(payload, request_origin=None):
 
     encoded_content = payload.get("text")
     sender_id = payload.get("MSISDN") or payload.get("address")
-    date = payload.get("date") 
-    date_sent = payload.get("date_sent") 
-
+    date = payload.get("date")
+    date_sent = payload.get("date_sent")
 
     if not encoded_content:
         return None, "Missing required field: text"
@@ -70,7 +69,10 @@ def decode_and_publish(payload, request_origin=None):
         )
     else:
         publish_response, publish_error = publish_content(
-            content=encoded_content, sender=sender_id, date=date, date_sent=date_sent
+            content=encoded_content,
+            sender=sender_id,
+            date=str(int(date) // 1000) if date else date,
+            date_sent=str(int(date_sent) // 1000) if date_sent else date_sent,
         )
 
     if publish_error:
