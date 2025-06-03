@@ -3,7 +3,7 @@ bleach==6.2.0
 email-reply-parser==0.5.12
 Flask==3.1.1
 Flask-Cors==6.0.0
-grpcio==1.70.0
+grpcio==1.72.1
 grpcio-testing==1.72.1
 grpcio-tools==1.72.1
 gunicorn==23.0.0
