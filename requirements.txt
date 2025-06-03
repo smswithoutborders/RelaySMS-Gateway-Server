@@ -5,7 +5,7 @@ Flask==3.1.1
 Flask-Cors==6.0.0
 grpcio==1.70.0
 grpcio-testing==1.72.1
-grpcio-tools==1.70.0
+grpcio-tools==1.72.1
 gunicorn==23.0.0
 idna==3.10
 imap-tools==1.10.0
