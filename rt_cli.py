@@ -192,7 +192,8 @@ def view_test_data(msisdn=None):
     """
     with ReliabilityTests._meta.database.atomic():
         try:
-            tests, _ = reliability_tests.get_all()
+            result = reliability_tests.get_all()
+            tests = result["data"]
 
             if msisdn:
                 tests, _ = reliability_tests.get_tests_for_client(msisdn)

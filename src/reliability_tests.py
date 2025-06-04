@@ -4,7 +4,7 @@ import logging
 import datetime
 
 from playhouse.shortcuts import model_to_dict
-from peewee import DoesNotExist
+from peewee import DoesNotExist, fn, Case
 
 from src.models import ReliabilityTests
 from src import gateway_clients
@@ -25,54 +25,69 @@ def get_all(
     page: int = None,
     per_page: int = None,
     order_desc: bool = True,
-) -> tuple:
-    """Get all reliability tests according to the filters, pagination.
-
-    Args:
-        filters (dict, optional): A dictionary containing filtering criteria.
-        page (int, optional): Page number for pagination.
-        per_page (int, optional): Number of records per page for pagination.
-        order_desc (bool, optional): If True, return results in descending order
-            (newest first). Default is True (newest first).
-
-    Returns:
-        tuple: A tuple containing a list of dictionaries containing reliability
-            test data and total_records.
-    """
-
+) -> dict:
+    """Get all reliability tests according to filters and pagination."""
     results = []
+    conditions = []
+
+    if filters:
+        for key, value in filters.items():
+            if value is not None and key in ReliabilityTests._meta.fields:
+                conditions.append(getattr(ReliabilityTests, key) == value)
 
     with database.atomic():
-        query = ReliabilityTests.select().dicts()
+        query = ReliabilityTests.select()
+        if conditions:
+            query = query.where(*conditions)
+        query = query.order_by(
+            ReliabilityTests.id.desc() if order_desc else ReliabilityTests.id.asc()
+        )
 
-        if filters:
-            conditions = []
-
-            for key, value in filters.items():
-                if value is not None:
-                    conditions.append(getattr(ReliabilityTests, key) == value)
-
-            if conditions:
-                query = query.where(*conditions).dicts()
-
-        if order_desc:
-            query = query.order_by(ReliabilityTests.id.desc())
-        else:
-            query = query.order_by(ReliabilityTests.id.asc())
-
-        total_records = query.count()
-
-        if page is not None and per_page is not None:
+        if page and per_page:
             query = query.paginate(page, per_page)
 
-        for test in query:
-            for field, value in test.items():
-                if isinstance(value, datetime.datetime):
-                    test[field] = int(value.timestamp())
+        for test in query.dicts():
+            cleaned = {
+                field: (
+                    int(value.timestamp())
+                    if isinstance(value, datetime.datetime)
+                    else value
+                )
+                for field, value in test.items()
+            }
+            results.append(cleaned)
 
-            results.append(test)
+        success_condition = (
+            (ReliabilityTests.status == "success")
+            & (~ReliabilityTests.sms_routed_time.is_null())
+            & (
+                (
+                    ReliabilityTests.sms_routed_time.to_timestamp()
+                    - ReliabilityTests.sms_received_time.to_timestamp()
+                )
+                <= 300
+            )
+        )
 
-    return results, total_records
+        agg_query = ReliabilityTests.select(
+            fn.COUNT(ReliabilityTests.id).alias("total_records"),
+            fn.SUM(Case(None, ((success_condition, 1),), 0)).alias("total_success"),
+            fn.SUM(Case(None, ((ReliabilityTests.status == "timedout", 1),), 0)).alias(
+                "total_failed"
+            ),
+        )
+
+        if conditions:
+            agg_query = agg_query.where(*conditions)
+
+        agg_result = agg_query.dicts().get()
+
+    return {
+        "data": results,
+        "total_records": agg_result["total_records"],
+        "total_success": agg_result["total_success"],
+        "total_failed": agg_result["total_failed"],
+    }
 
 
 def get_tests_for_client(
@@ -103,9 +118,9 @@ def get_tests_for_client(
     filters = filters or {}
     filters["msisdn"] = msisdn
 
-    tests, total_records = get_all(filters, page, per_page)
+    result = get_all(filters, page, per_page)
 
-    return tests, total_records
+    return result["data"], result["total_records"]
 
 
 def update_timed_out_tests_status(check_interval: int = 15) -> None:
