@@ -107,17 +107,32 @@ Get reliability tests for a specific gateway client with optional filters.
 #### Response
 
 ```json
-[
-  {
-    "id": 1,
-    "msisdn": "+xxxxxxxxx",
-    "sms_received_time": 1713995252,
-    "sms_routed_time": 1713995260,
-    "sms_sent_time": 1713995250,
-    "start_time": 1715377980,
-    "status": "success"
-  }
-]
+{
+  "data": [
+    {
+      "id": 11,
+      "msisdn": "+xxxxxxxxx",
+      "sms_received_time": 1747691895,
+      "sms_routed_time": 1747691895,
+      "sms_sent_time": 1747691895,
+      "start_time": 1747691894,
+      "status": "success"
+    },
+    {
+      "id": 10,
+      "msisdn": "+xxxxxxxxx",
+      "sms_received_time": 1747691894,
+      "sms_routed_time": 1747691894,
+      "sms_sent_time": 1747691894,
+      "start_time": 1747691893,
+      "status": "success"
+    }
+    // ...more test objects...
+  ],
+  "total_failed": "1",
+  "total_records": 11,
+  "total_success": "10"
+}
 ```
 
 > [!NOTE]

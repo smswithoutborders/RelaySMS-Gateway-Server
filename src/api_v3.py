@@ -117,70 +117,69 @@ def get_gateway_clients():
 
 @v3_blueprint.route("/clients/<string:msisdn>/tests", methods=["GET", "POST"])
 def manage_gateway_client_tests(msisdn):
-    """Manage reliability tests for a specific gateway client: GET to fetch tests, POST to start a new test."""
+    """Manage reliability tests for a specific gateway client:
+    GET to fetch tests, POST to start a new test."""
+    reliability_tests.update_timed_out_tests_status(check_interval=10)
 
     if request.method == "GET":
-        page = int(request.args.get("page", 1))
-        per_page = int(request.args.get("per_page", 10))
-        status = request.args.get("status")
-        start_time = request.args.get("start_time")
-        end_time = request.args.get("end_time")
-
-        if page < 1 or per_page < 1:
-            raise ValueError("Page and per_page must be positive integers.")
+        try:
+            page = int(request.args.get("page", 1))
+            per_page = int(request.args.get("per_page", 10))
+            if page < 1 or per_page < 1:
+                raise ValueError
+        except ValueError:
+            raise BadRequest("Page and per_page must be positive integers.")
 
         filters = {"msisdn": msisdn}
+        status = request.args.get("status")
         if status:
             filters["status"] = status
-        if start_time:
-            try:
-                filters["start_time__gte"] = datetime.fromisoformat(start_time)
-            except ValueError as exc:
-                raise BadRequest(
-                    "Invalid start_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
-                ) from exc
-        if end_time:
-            try:
-                filters["start_time__lte"] = datetime.fromisoformat(end_time)
-            except ValueError as exc:
-                raise BadRequest(
-                    "Invalid end_time format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
-                ) from exc
 
-        results, total_records = reliability_tests.get_all(filters, page, per_page)
+        for key, param, filter_key in [
+            ("start_time", request.args.get("start_time"), "start_time__gte"),
+            ("end_time", request.args.get("end_time"), "start_time__lte"),
+        ]:
+            if param:
+                try:
+                    filters[filter_key] = datetime.fromisoformat(param)
+                except ValueError as exc:
+                    raise BadRequest(
+                        f"Invalid {key} format. Use ISO format (YYYY-MM-DDTHH:MM:SS)."
+                    ) from exc
+
+        results = reliability_tests.get_all(filters, page, per_page)
 
         response = jsonify(results)
-        response.headers["X-Total-Count"] = str(total_records)
+        response.headers["X-Total-Count"] = str(results["total_records"])
         response.headers["X-Page"] = str(page)
         response.headers["X-Per-Page"] = str(per_page)
-
-        link_header = build_link_header(request.base_url, page, per_page, total_records)
+        link_header = build_link_header(
+            request.base_url, page, per_page, results["total_records"]
+        )
         if link_header:
             response.headers["Link"] = link_header
-
         return response
 
-    elif request.method == "POST":
-        """Start a new reliability test for the specified gateway client."""
-        gateway_client = GatewayClients.get_or_none(msisdn=msisdn)
-        if not gateway_client:
-            return jsonify({"error": "Gateway client not found"})
+    # POST
+    gateway_client = GatewayClients.get_or_none(msisdn=msisdn)
+    if not gateway_client:
+        return jsonify({"error": "Gateway client not found"})
 
-        new_test = ReliabilityTests.create(
-            msisdn=gateway_client,
-            status="pending",
-            sms_sent_time=None,
-            sms_received_time=None,
-            sms_routed_time=None,
-        )
+    new_test = ReliabilityTests.create(
+        msisdn=gateway_client,
+        status="pending",
+        sms_sent_time=None,
+        sms_received_time=None,
+        sms_routed_time=None,
+    )
 
-        return jsonify(
-            {
-                "message": "Test started successfully.",
-                "test_id": int(new_test.id),
-                "test_start_time": int(new_test.start_time.timestamp()),
-            }
-        )
+    return jsonify(
+        {
+            "message": "Test started successfully.",
+            "test_id": int(new_test.id),
+            "test_start_time": int(new_test.start_time.timestamp()),
+        }
+    )
 
 
 @v3_blueprint.route("/clients/countries", methods=["GET"])
