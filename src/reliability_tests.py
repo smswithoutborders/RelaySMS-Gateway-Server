@@ -4,7 +4,7 @@ import logging
 import datetime
 
 from playhouse.shortcuts import model_to_dict
-from peewee import DoesNotExist, fn, Case
+from peewee import DoesNotExist, fn, Case, DQ
 
 from src.models import ReliabilityTests
 from src import gateway_clients
@@ -28,17 +28,17 @@ def get_all(
 ) -> dict:
     """Get all reliability tests according to filters and pagination."""
     results = []
-    conditions = []
+    dq_filters = []
 
     if filters:
         for key, value in filters.items():
-            if value is not None and key in ReliabilityTests._meta.fields:
-                conditions.append(getattr(ReliabilityTests, key) == value)
+            if value is not None:
+                dq_filters.append(DQ(**{key: value}))
 
     with database.atomic():
         query = ReliabilityTests.select()
-        if conditions:
-            query = query.where(*conditions)
+        if dq_filters:
+            query = query.filter(*dq_filters)
         query = query.order_by(
             ReliabilityTests.id.desc() if order_desc else ReliabilityTests.id.asc()
         )
@@ -77,8 +77,8 @@ def get_all(
             ),
         )
 
-        if conditions:
-            agg_query = agg_query.where(*conditions)
+        if dq_filters:
+            agg_query = agg_query.filter(*dq_filters)
 
         agg_result = agg_query.dicts().get()
 
