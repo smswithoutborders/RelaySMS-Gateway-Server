@@ -22,4 +22,5 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY . .
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+ENV MODE=production
 CMD ["supervisord", "-n", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
