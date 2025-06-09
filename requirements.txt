@@ -17,7 +17,7 @@ pycryptodomex==3.23.0
 pyftpdlib==2.0.1
 pymysql==1.1.1
 pyOpenSSL==25.1.0
-requests==2.32.3
+requests==2.32.4
 tqdm==4.67.1
 webencodings==0.5.1
 websocket==0.2.1
