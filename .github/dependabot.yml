@@ -2,14 +2,29 @@ version: 2
 updates:
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "staging"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 99
+    labels:
+      - "dependencies"
   - package-ecosystem: "pip"
     directory: "/"
+    target-branch: "staging"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 99
     allow:
       - dependency-type: "direct"
       - dependency-type: "indirect"
+    labels:
+      - "dependencies"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+        patterns:
+          - "*"
+      development-dependencies:
+        dependency-type: "development"
+        patterns:
+          - "*"
