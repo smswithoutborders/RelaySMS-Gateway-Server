@@ -55,20 +55,27 @@ sudo apt install python3-dev libmysqlclient-dev apache2 apache2-dev make libapac
 
 ## Installation
 
-1. **Create and activate a virtual environment:**
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/smswithoutborders/RelaySMS-Gateway-Server.git
+   cd RelaySMS-Gateway-Server
+   ```
+
+2. **Create and activate a virtual environment:**
 
    ```bash
    python3 -m venv venv
    source venv/bin/activate
    ```
 
-2. **Install dependencies:**
+3. **Install dependencies:**
 
    ```bash
    pip install -r requirements.txt
    ```
 
-3. **Compile gRPC protos:**
+4. **Compile gRPC protos:**
 
    ```bash
    make grpc-compile
@@ -81,8 +88,6 @@ sudo apt install python3-dev libmysqlclient-dev apache2 apache2-dev make libapac
 ```bash
 docker build -t relaysms-gateway-server .
 ```
-
-> Edit `.env` as needed for your environment.
 
 #### Run the Container
 
