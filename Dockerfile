@@ -22,6 +22,9 @@ RUN --mount=type=cache,sharing=locked,target=/root/.cache/pip \
 	pip install --disable-pip-version-check --quiet --no-cache-dir -r requirements.txt
 
 COPY . .
+
+RUN make grpc-compile
+
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 ENV MODE=production

@@ -1,276 +1,226 @@
-# SMSWithoutBorders Gateway Server
+# RelaySMS Gateway Server
 
-## API References
+RelaySMS Gateway Server is the online router that receives messages from gateway clients and directs them to users' chosen internet platforms.
 
-- [API Version 3](/docs/api_v3.md)
+## Table of Contents
 
-## Requirements
+1. [Quick Start](#quick-start)
+2. [System Requirements](#system-requirements)
+3. [Installation](#installation)
+4. [Configuration](#configuration)
+5. [References](#references)
+6. [Contributing](#contributing)
+7. [License](#license)
 
-- [MySQL](https://www.mysql.com/) (version >= 8.0.28)
-  ([MariaDB](https://mariadb.org/))
-- [Python](https://www.python.org/) (version >=
-  [3.8.10](https://www.python.org/downloads/release/python-3810/))
-- [Python Virtual Environments](https://docs.python.org/3/tutorial/venv.html)
+## Quick Start
 
-## Dependencies
+> [!NOTE]
+>
+> Ensure all [system dependencies](#system-requirements) are installed before running setup scripts.
 
-On Ubuntu, install the following dependencies:
+For development, use the provided scripts:
 
 ```bash
+source scripts/quick-setup.sh && ./scripts/quick-start.sh
+```
+
+- `quick-setup`:
+
+  - Creates a Python virtual environment (if missing)
+  - Installs Python dependencies
+  - Sets up a `.env` file
+  - Exports environment variables
+  - Downloads the `publisher` and `bridge` Protobuf files. (via `make publisher-proto` and `make bridge-proto` respectively)
+  - Compiles gRPC protos (via `make grpc-compile`)
+
+- `quick-start`:
+  - Launches the REST server, IMAP Listener, and the FTP Server.
+
+> [!WARNING]
+>
+> This setup is for development only. Do not use in production.
+
+## System Requirements
+
+- **Database:** MySQL (≥ 8.0.28), MariaDB, or SQLite
+- **Python:** ≥ 3.8.10
+- **Virtual Environments:** Python venv
+
+### Ubuntu Dependencies
+
+```bash
+sudo apt update
 sudo apt install python3-dev libmysqlclient-dev apache2 apache2-dev make libapache2-mod-wsgi-py3
 ```
 
-> [!NOTE] 
-> The gateway server has strong dependencies on the 
-> [Backend](https://github.com/smswithoutborders/SMSwithoutborders-BE) 
-> User Databases.
-
-## Linux Environment Variables
-
-Variables used for the Project:
-
-- MYSQL_HOST
-- MYSQL_USER
-- MYSQL_PASSWORD
-- MYSQL_DATABASE
-- SHARED_KEY
-- HASHING_SALT
-- ORIGINS
-- HOST
-- PORT
-- RMQ_HOST
-- RABBITMQ_DEFAULT_USER
-- RABBITMQ_DEFAULT_PASS
-- IMAP_SERVER
-- IMAP_PORT
-- IMAP_USERNAME
-- IMAP_PASSWORD
-- MAIL_FOLDER
-- FTP_USERNAME
-- FTP_PASSWORD
-- FTP_IP_ADDRESS
-- FTP_PORT
-- FTP_PASSIVE_PORTS
-- FTP_READ_LIMIT
-- FTP_WRITE_LIMIT
-- FTP_MAX_CON
-- FTP_MAX_CON_PER_IP
-- FTP_DIRECTORY
-- DEKU_CLOUD_URL
-- DEKU_CLOUD_PROJECT_REF
-- DEKU_CLOUD_SERVICE_ID
-- DEKU_CLOUD_ACCOUNT_SID
-- DEKU_CLOUD_AUTH_TOKEN
-- SSL_CERTIFICATE
-- SSL_KEY
-
 ## Installation
 
-### Clone the Repository
-
-Clone the SMSWithoutBorders Gateway Server repository from GitHub:
-
-```bash
-git clone https://github.com/smswithoutborders/SMSWithoutBorders-Gateway-Server.git
-cd SMSWithoutBorders-Gateway-Server
-```
-
-Install all Python packages:
-
-### Pip
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### Build and Run with Docker
-
-1. **Build Docker Image:**
-
-   Ensure you have Docker installed on your system. Then, navigate to the root
-   directory of the cloned repository and run the following command to build the
-   Docker image:
+1. **Clone the repository:**
 
    ```bash
-   docker build -t smswithoutborders-gateway-server .
+   git clone https://github.com/smswithoutborders/RelaySMS-Gateway-Server.git
+   cd RelaySMS-Gateway-Server
    ```
 
-   Replace `smswithoutborders-gateway-server` with your desired image name.
-
-2. **Run Docker Container:**
-
-   After the image is built, run a Docker container using the following command:
+2. **Create and activate a virtual environment:**
 
    ```bash
-   docker run -d -p 5000:5000 --name gateway-server smswithoutborders-gateway-server
+   python3 -m venv venv
+   source venv/bin/activate
    ```
 
-   Adjust the port mapping (`-p`) and container name (`--name`) as needed.
-
-3. **Verify Container:**
-
-   Verify that the container is running by checking its status:
+3. **Install dependencies:**
 
    ```bash
-   docker ps
+   pip install -r requirements.txt
    ```
 
-   This should display the running containers, including the SMSWithoutBorders
-   Gateway Server container.
+4. **Compile gRPC protos:**
 
-## Running
+   ```bash
+   make grpc-compile
+   ```
 
-For quicker development, you can integrate the
-[BE Dependencies](https://github.com/smswithoutborders/SMSwithoutborders-BE)
-databases.
+## Building and Running with Docker
 
-> In cases where the BE Database and Gateway server share the same database:
-
-```bash
-MYSQL_HOST=host \
-MYSQL_PORT=port \
-MYSQL_USERNAME=username \
-MYSQL_DATABASE=dbname \
-flask --debug --app src.main run
-```
-
-> In cases where the BE Database and Gateway server don't share the same
-> database:
+#### Build the Docker Image
 
 ```bash
-MYSQL_HOST=host \
-MYSQL_PORT=port \
-MYSQL_USERNAME=username \
-MYSQL_DATABASE=dbname \
-MYSQL_BE_HOST=host \
-MYSQL_BE_PORT=port \
-MYSQL_BE_USERNAME=username \
-MYSQL_BE_DATABASE=dbname \
-flask --debug --app src.main run
+docker build -t relaysms-gateway-server .
 ```
 
-## Use cases
+#### Run the Container
 
-**Synchronization**
-
-Synchronization prepares the app for secured conversation using shared keys.
-
-**Synchronization flow**
-
-1. Begin by requesting a new session: `GET /<api-version>/sync/users/<user-id>`
-
-   This returns a URL string, which can be connected to by websocket clients.
-   Users can begin communicating with this returned URL or scan them through the
-   QR scan function in the app. The frequency of change of the synchronization
-   URLs depends on the configuration settings (defaults = 15 seconds).
-
-   The total number of changes per frequency can be changed (defaults = 3
-   times).
-
-   Response:
-
-   - `200`: session created
-   - `500`: some error occurred, check debug logs
-
-2. Once a sync URL is connected and begins processing, the websocket sends a
-   pause text `201- pause`. The user begins authenticating themselves and adding
-   their security policies to their record on the server.
-
-3. Once the user has performed the necessary handshake and the information
-   exchange has begun, the websocket sends an acknowledgment text `200- ack`.
-
-**Reliability Tests**
-
-The Reliability Tests CLI (`rt_cli`) can be used
-to trigger and view reliability tests for gateway clients. Refer to the
-[Reliability Tests CLI documentation](/docs/reliability_tests_cli.md) for usage and
-installation instructions.
-
-**Gateway Clients Management**
-
-The Gateway Clients CLI (`gc_cli`) provides
-functionality to create, view, and update gateway client records. Check
-out the [Gateway Clients CLI documentation](/docs/gateway_clients_cli.md) for more
-details on usage and installation.
-
-## Testing
-
-- Testing [Users model](gateway_server/users.py):
+> [!TIP]
+>
+> **For long-term development, you may want to run the container in detached mode (`-d`) and view logs with:**
+>
+> ```bash
+> docker logs -f <container_id_or_name>
+> ```
 
 ```bash
-python -m unittest gateway_server/test/UTestUsers.py
+docker run --rm \
+  --env-file .env \
+  -p 5000:5000 -p 5001:5001 \
+  -p 2222:2222 -p 60000-65000:60000-65000 \
+  -v $(pwd)/ftp_file_store:/gateway_server/ftp_file_store \
+  relaysms-gateway-server
 ```
 
-- Testing [WebSockets](gateway_server/sessions_websocket.py):
+> [!TIP]
+>
+> - To run in detached mode:
+>   ```bash
+>   docker run -d \
+>     --name relaysms-gateway-server \
+>     --env-file .env \
+>     -p 5000:5000 -p 5001:5001 \
+>     -p 2222:2222 -p 60000-65000:60000-65000 \
+>     -v $(pwd)/ftp_file_store:/gateway_server/ftp_file_store \
+>     relaysms-gateway-server
+>   ```
+>   Then view logs with:
+>   ```bash
+>   docker logs -f relaysms-gateway-server
+>   ```
 
-Install [websocat](https://github.com/vi/websocat) and
-[jq](https://stedolan.github.io/jq/):
+---
 
-_Manjaro:_
+## Configuration
+
+Configure via environment variables, either in your shell or a `.env` file.
+
+**To load from `.env`:**
 
 ```bash
-sudo pacman -S websocat jq
+set -a
+source .env
+set +a
 ```
 
-Test websocket:
+**Or set individually:**
 
 ```bash
-websocat ws://localhost:6996/v2/sync/init/111/000
+export HOST=localhost
+export PORT=5000
+# etc.
 ```
 
-- Testing [RSA Encryption/Decryption](test/security_rsa.py): This will require
-  pem files. Copy them into the test/ directory to allow the test run.
+### Server
 
-```bash
-python -m unittest test/security_rsa.py
-```
+- `SSL_SERVER_NAME`: SSL certificate server name (default: `localhost`)
+- `HOST`: REST server host (default: `localhost`)
+- `PORT`: REST server port (default: `5000`)
+- `SSL_PORT`: REST SSL port (default: `5001`)
+- `SSL_CERTIFICATE`, `SSL_KEY`, `SSL_PEM`: SSL file paths (optional)
 
-- Testing [Entire Handshake process](test/handshake.py): This will require pem
-  files. Copy them into the test/ directory to allow the test run.
+### Publisher gRPC
 
-```bash
-./test/handshake.sh
-```
+- `PUBLISHER_GRPC_HOST`: Publisher gRPC server host (default: `127.0.0.1`)
+- `PUBLISHER_GRPC_PORT`: Publisher gRPC server port (default: `6000`)
 
-## Scripts
+### Bridge gRPC
 
-### FTP Server
+- `BRIDGE_GRPC_HOST`: Bridge gRPC server host (default: `127.0.0.1`)
+- `BRIDGE_GRPC_PORT`: Bridge gRPC server port (default: `10000`)
 
-```bash
-MYSQL_HOST= \
-MYSQL_USER= \
-MYSQL_PASSWORD= \
-MYSQL_DATABASE= \
-FTP_USERNAME= \
-FTP_PASSWORD= \
-FTP_IP_ADDRESS= \
-FTP_PORT= \
-FTP_PASSIVE_PORTS= \
-FTP_READ_LIMIT= \
-FTP_WRITE_LIMIT= \
-FTP_MAX_CON= \
-FTP_MAX_CON_PER_IP= \
-FTP_DIRECTORY= \
-SSL_CERTIFICATE= \
-SSL_KEY= \
-python3 -m src.ftp_server
-```
+### CORS
 
-### IMAP Listener
+- `ORIGINS`: Allowed CORS origins (default: `[]`)
 
-```bash
-MYSQL_HOST= \
-MYSQL_USER= \
-MYSQL_PASSWORD= \
-MYSQL_DATABASE= \
-IMAP_SERVER= \
-IMAP_PORT= \
-IMAP_USERNAME= \
-IMAP_PASSWORD= \
-MAIL_FOLDER= \
-SSL_CERTIFICATE= \
-SSL_KEY= \
-python3 -m src.imap_listener
-```
+### Database
+
+- `MYSQL_HOST`: MySQL host (default: `127.0.0.1`)
+- `MYSQL_USER`: MySQL username
+- `MYSQL_PASSWORD`: MySQL password
+- `MYSQL_DATABASE`: MySQL database (default: `relaysms_gateway_server`)
+- `SQLITE_DATABASE_PATH`: SQLite file path (default: `gateway_server.db`)
+
+### IMAP Configuration
+
+- `IMAP_SERVER`: IMAP server hostname
+- `IMAP_PORT`: IMAP server port (default: `993`)
+- `IMAP_USERNAME`: IMAP username
+- `IMAP_PASSWORD`: IMAP password
+- `MAIL_FOLDER`: Mail folder to monitor (default: `INBOX`)
+
+### FTP Configuration
+
+- `FTP_USERNAME`: FTP username
+- `FTP_PASSWORD`: FTP password
+- `FTP_IP_ADDRESS`: FTP server IP address (default: `localhost`)
+- `FTP_PORT`: FTP server port (default: `2222`)
+- `FTP_PASSIVE_PORTS`: FTP passive port range (default: `60000-65000`)
+- `FTP_READ_LIMIT`: FTP read limit in bytes (default: `51200`)
+- `FTP_WRITE_LIMIT`: FTP write limit in bytes (default: `51200`)
+- `FTP_MAX_CON`: Maximum FTP connections (default: `256`)
+- `FTP_MAX_CON_PER_IP`: Maximum FTP connections per IP (default: `5`)
+- `FTP_DIRECTORY`: FTP directory path (default: `ftp_file_store`)
+
+### Security
+
+- `SMTP_ALLOWED_EMAIL_ADDRESSES`: Allowed email addresses for SMTP
+- `DISABLE_BRIDGE_PAYLOADS_OVER_HTTP`: Disable bridge payloads over HTTP (default: `false`)
+
+### Logging
+
+- `LOG_LEVEL`: Logging level (default: `info`)
+
+## References
+
+- REST API Resources:
+  - [API V3](docs/api_v3.md)
+- [Gateway Client CLI](docs/gateway_clients_cli.md)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature-branch`
+3. Commit your changes
+4. Push to your branch
+5. Open a pull request
+
+## License
+
+Licensed under the GNU General Public License (GPL). See [LICENSE](LICENSE) for details.

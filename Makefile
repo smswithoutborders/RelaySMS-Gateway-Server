@@ -17,8 +17,6 @@ $(PROTO_DIR)/%.proto:
 	$(eval PROTO_URL := $(PROTO_URL))
 	$(call download-proto)
 
-setup: grpc-compile start-rest-api
-
 publisher-proto: 
 	@rm -f "$(PROTO_DIR)/publisher.proto"
 	@$(MAKE) PROTO_URL=https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Publisher/$(CURRENT_BRANCH)/protos/v1/publisher.proto \
@@ -40,14 +38,34 @@ grpc-compile: publisher-proto bridge-proto
 	$(call log_message,INFO - gRPC Compilation complete!)
 	
 start-rest-api:
-	@(\
-		echo "[$(shell date +'%Y-%m-%d %H:%M:%S')] - INFO - Starting REST API with TLS ..." && \
-		gunicorn -w 4 -b 0.0.0.0:'${SSL_PORT}' \
+	$(call log_message,[INFO] Starting REST API ...)
+	@if [ "$$MODE" = "production" ]; then \
+		echo "[INFO] Running in production mode with SSL"; \
+		gunicorn -w 4 -b 0.0.0.0:$$SSL_PORT \
 			--log-level=info \
 			--access-logfile=- \
-			--certfile='${SSL_CERTIFICATE}' \
-			--keyfile='${SSL_KEY}' \
-			--thread 15 \
+			--certfile=$$SSL_CERTIFICATE \
+			--keyfile=$$SSL_KEY \
+			--threads 15 \
 			--timeout 30 \
 			main:app; \
-	)
+	else \
+		echo "[INFO] Running in development mode without SSL"; \
+		gunicorn -w 1 -b 0.0.0.0:$$PORT \
+			--log-level=info \
+			--access-logfile=- \
+			--threads 3 \
+			--timeout 30 \
+			main:app; \
+	fi
+	$(call log_message,[INFO] REST API started successfully.)
+
+start-imap-listener:
+	$(call log_message,[INFO] Starting IMAP Listener ...)
+	@$(python) -m src.imap_listener
+	$(call log_message,[INFO] IMAP Listener started successfully.)
+
+start-ftp-server:
+	$(call log_message,[INFO] Starting FTP Server ...)
+	@$(python) -m src.ftp_server
+	$(call log_message,[INFO] FTP Server started successfully.)
