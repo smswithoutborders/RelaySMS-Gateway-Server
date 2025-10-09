@@ -8,6 +8,8 @@ from typing import Tuple, Optional, Union, Dict, Any
 from src.grpc_publisher_client import publish_content
 from src.bridge_server_grpc_client import publish_bridge_content
 from src.utils import get_configs
+from src.payload_parser import PayloadParser
+from src.segment_cache import SegmentCache
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,159 @@ def _convert_timestamp(timestamp: Optional[Union[int, str]]) -> Optional[str]:
         return str(timestamp)
 
 
+def detect_payload_type(content: str) -> str:
+    """Detect the type of the payload.
+
+    Args:
+        content: The payload string.
+
+    Returns:
+        Payload type identifier: 'image-text', 'bridge', 'platform'.
+    """
+    if PayloadParser.is_it_payload(content):
+        return "image-text"
+
+    if PayloadParser.is_bridge_payload(content):
+        return "bridge"
+
+    return "platform"
+
+
+def _assemble_complete_payload(session_id: str, sender_id: str) -> Optional[str]:
+    """Assemble all segments of a session into complete payload.
+
+    Args:
+        session_id: The session identifier.
+        sender_id: The sender's phone number or identifier.
+
+    Returns:
+        The assembled base64 content or None if assembly fails.
+    """
+    segments = SegmentCache.get_segments(session_id, sender_id)
+
+    if not segments:
+        logger.error("No segments found for session %s", session_id)
+        return None
+
+    try:
+        segments_sorted = sorted(segments, key=lambda s: s.segment_number)
+        assembled_content = b"".join(seg.content for seg in segments_sorted)
+
+        logger.debug(
+            "Assembled %d segments for session %s, total length: %d bytes",
+            len(segments_sorted),
+            session_id,
+            len(assembled_content),
+        )
+
+        return assembled_content.decode("utf-8")
+
+    except Exception as e:
+        logger.error(
+            "Failed to assemble segments for session %s: %s", session_id, str(e)
+        )
+        return None
+
+
+def _handle_image_text_payload(
+    encoded_content: str,
+    sender_id: str,
+    date: str,
+    date_sent: str,
+    request_origin: Optional[str] = None,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Handle image-text payload with segmentation and caching.
+
+    Args:
+        encoded_content: The image-text formatted payload string.
+        sender_id: The sender's phone number or identifier.
+        date: Message date timestamp.
+        date_sent: Message sent timestamp.
+        request_origin: The origin of the request ('http', 'smtp', 'ftp').
+
+    Returns:
+        Tuple of (message, error). Returns success message if segment stored
+        or published, error message if processing fails.
+    """
+    parse_result = PayloadParser.parse_image_text_payload(encoded_content)
+    if not parse_result:
+        return None, "Failed to parse image-text payload"
+
+    metadata, content = parse_result
+    session_id = metadata["session_id"]
+
+    success = SegmentCache.store_segment(
+        session_id=session_id,
+        sender_id=sender_id,
+        segment_number=metadata["segment_number"],
+        total_segments=metadata["total_segments"],
+        image_length=metadata["image_length"],
+        text_length=metadata["text_length"],
+        content=content.encode("utf-8"),
+    )
+
+    if not success:
+        return None, "Failed to store message segment"
+
+    is_complete, received, total = SegmentCache.is_session_complete(
+        session_id, sender_id
+    )
+
+    if not is_complete:
+        logger.debug(
+            "Session %s partial: %d/%d segments received. Waiting for more...",
+            session_id,
+            received,
+            total,
+        )
+        return (
+            f"Segment {received}/{total} received and cached for session {session_id}",
+            None,
+        )
+
+    logger.info(
+        "Session %s complete (%d/%d segments). Assembling and publishing...",
+        session_id,
+        received,
+        total,
+    )
+
+    assembled_content = _assemble_complete_payload(session_id, sender_id)
+
+    if not assembled_content:
+        SegmentCache.delete_session(session_id, sender_id)
+        return None, "Failed to assemble complete payload"
+
+    # Recursively call decode_and_publish with assembled content
+    # This allows the existing logic to handle bridge vs platform payloads
+    assembled_payload = {
+        "text": assembled_content,
+        "address": sender_id,
+        "date": date,
+        "date_sent": date_sent,
+    }
+    publish_message, publish_error = decode_and_publish(
+        payload=assembled_payload, request_origin=request_origin
+    )
+
+    SegmentCache.delete_session(session_id, sender_id)
+
+    if publish_error:
+        logger.error(
+            "✖ Publishing failed for session %s: %s",
+            session_id,
+            publish_error,
+        )
+        return None, publish_error
+
+    logger.info(
+        "✔ Image-text payload published successfully - Session: %s, Sender: %s",
+        session_id,
+        _obfuscate_sender_id(sender_id),
+    )
+    return publish_message, None
+
+
 def decode_and_publish(
     payload: Union[str, Dict[str, Any]], request_origin: Optional[str] = None
 ) -> Tuple[Optional[str], Optional[str]]:
@@ -114,6 +269,14 @@ def decode_and_publish(
     date = payload["date"]
     date_sent = payload["date_sent"]
 
+    payload_type = detect_payload_type(encoded_content)
+
+    if payload_type == "image-text":
+        logger.debug("Detected image-text payload from sender: %s", sender_id)
+        return _handle_image_text_payload(
+            encoded_content, sender_id, date, date_sent, request_origin
+        )
+
     try:
         decoded_bytes = base64.b64decode(encoded_content)
     except (ValueError, TypeError) as e:
@@ -124,7 +287,7 @@ def decode_and_publish(
         logger.error("✖ Decoded payload is empty")
         return None, "Decoded payload is empty"
 
-    is_bridge_request = decoded_bytes[0] == BRIDGE_REQUEST_IDENTIFIER
+    is_bridge_request = payload_type == "bridge"
 
     if (
         is_bridge_request
@@ -168,7 +331,7 @@ def decode_and_publish(
         "✔ Payload published successfully - Origin: %s, Sender: %s, Type: %s",
         request_origin,
         _obfuscate_sender_id(sender_id),
-        "bridge" if is_bridge_request else "regular",
+        "bridge" if is_bridge_request else "platform",
     )
     return (
         publish_response.message
