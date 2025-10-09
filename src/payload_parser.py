@@ -15,6 +15,23 @@ class PayloadParser:
     """Parser for payload format."""
 
     @staticmethod
+    def _check_hex_prefix(payload: str, expected_prefix: str, min_length: int) -> bool:
+        """Check if payload starts with expected hex prefix.
+
+        Args:
+            payload: The payload string to check.
+            expected_prefix: The expected hex prefix (e.g., "04").
+            min_length: Minimum required payload length.
+
+        Returns:
+            True if payload meets criteria, False otherwise.
+        """
+        return (
+            len(payload) >= min_length
+            and payload[: len(expected_prefix)] == expected_prefix
+        )
+
+    @staticmethod
     def is_bridge_payload(payload: str) -> bool:
         """Detect if a payload is in bridge format.
 
@@ -26,8 +43,10 @@ class PayloadParser:
             True if the payload is a bridge request, False otherwise.
         """
         try:
-            decoded_bytes = base64.b64decode(payload)
-            return decoded_bytes and decoded_bytes[0] == BRIDGE_REQUEST_IDENTIFIER
+            decoded_bytes = base64.b64decode(payload, validate=True)
+            return (
+                len(decoded_bytes) > 0 and decoded_bytes[0] == BRIDGE_REQUEST_IDENTIFIER
+            )
         except (ValueError, TypeError):
             return False
 
@@ -46,37 +65,21 @@ class PayloadParser:
             True if the payload appears to be IT format, False otherwise.
         """
         try:
-            if len(payload) < 6:
+            if not PayloadParser._check_hex_prefix(payload, "04", 6):
                 return False
 
-            # Check prefix byte (should be 0x04)
-            prefix_hex = payload[:2]
-            prefix_byte = bytes.fromhex(prefix_hex)[0]
-
-            if prefix_byte != 4:
-                return False
-
-            # Try to parse as short format (6 total hex chars: 2 prefix + 4 metadata)
-            if len(payload) >= 6:
-                try:
-                    metadata_hex = payload[2:6]
-                    metadata_bytes = bytes.fromhex(metadata_hex)
-                    if len(metadata_bytes) == 2:
-                        return True
-                except (ValueError, TypeError):
-                    pass
-
-            # Try to parse as long format (14 total hex chars: 2 prefix + 12 metadata)
             if len(payload) >= 14:
                 try:
-                    metadata_hex = payload[2:14]
-                    metadata_bytes = bytes.fromhex(metadata_hex)
-                    if len(metadata_bytes) == 6:
-                        return True
+                    bytes.fromhex(payload[2:14])
+                    return True
                 except (ValueError, TypeError):
                     pass
 
-            return False
+            try:
+                bytes.fromhex(payload[2:6])
+                return True
+            except (ValueError, TypeError):
+                return False
 
         except (ValueError, TypeError, IndexError):
             return False
@@ -103,6 +106,9 @@ class PayloadParser:
             metadata_bytes = bytes.fromhex(metadata_hex)
             session_id = metadata_bytes[0]
             seg_info = metadata_bytes[1]
+
+            # Extract segment info from packed byte:
+            # high nibble = segment_number, low nibble = total_segments
             segment_number = (seg_info >> 4) & 0x0F
             total_segments = seg_info & 0x0F
 
@@ -162,45 +168,30 @@ class PayloadParser:
         Returns:
             Tuple of (metadata_dict, content_string) or None if parsing fails.
         """
-        if not PayloadParser.is_it_payload(payload):
-            logger.error("Payload is not in image-text format")
-            return None
-
         try:
-            # Determine metadata length by trying long format first, then short format
+            if not PayloadParser._check_hex_prefix(payload, "04", 6):
+                logger.error("Payload is not in image-text format")
+                return None
+
             metadata_hex = None
             content = None
 
-            # Try long format (12 hex chars)
             if len(payload) >= 14:
                 try:
-                    test_metadata = payload[2:14]
-                    test_bytes = bytes.fromhex(test_metadata)
-                    if len(test_bytes) == 6:
-                        # Check if remaining content is valid base64 or hex
-                        remaining = payload[14:]
-                        if remaining:
-                            metadata_hex = test_metadata
-                            content = remaining
+                    metadata_hex = payload[2:14]
+                    bytes.fromhex(metadata_hex)
+                    content = payload[14:]
                 except (ValueError, TypeError):
-                    pass
-
-            # Try short format (4 hex chars) if long format didn't work
-            if metadata_hex is None and len(payload) >= 6:
-                try:
-                    test_metadata = payload[2:6]
-                    test_bytes = bytes.fromhex(test_metadata)
-                    if len(test_bytes) == 2:
-                        remaining = payload[6:]
-                        if remaining:
-                            metadata_hex = test_metadata
-                            content = remaining
-                except (ValueError, TypeError):
-                    pass
+                    metadata_hex = None
 
             if metadata_hex is None:
-                logger.error("Could not determine metadata format")
-                return None
+                try:
+                    metadata_hex = payload[2:6]
+                    bytes.fromhex(metadata_hex)
+                    content = payload[6:]
+                except (ValueError, TypeError):
+                    logger.error("Could not determine metadata format")
+                    return None
 
             metadata = PayloadParser.parse_image_text_metadata(metadata_hex)
 

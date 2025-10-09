@@ -190,9 +190,9 @@ class TestITPayload:
     @pytest.mark.parametrize(
         "invalid_payload",
         [
-            "042a",  # Too short (less than 6 hex chars for short form)
-            "052a0100200030abc",  # Wrong prefix (not 04)
-            "04zzzzzzzzzzzz",  # Invalid hex characters
+            "042a",
+            "052a0100200030abc",
+            "04zzzzzzzzzzzz",
         ],
     )
     def test_invalid_it_payload_format(self, invalid_payload):
@@ -299,12 +299,12 @@ class TestITPayload:
     @pytest.mark.parametrize(
         "invalid_metadata",
         [
-            "0a5500640032",  # segment_number=5 >= total_segments=5 (long form)
-            "0a0000640032",  # total_segments=0 (invalid) (long form)
-            "0a6600640032",  # segment_number=6 >= total_segments=6 (long form)
-            "0a55",  # segment_number=5 >= total_segments=5 (short form)
-            "0a00",  # total_segments=0 (invalid) (short form)
-            "0a66",  # segment_number=6 >= total_segments=6 (short form)
+            "0a5500640032",
+            "0a0000640032",
+            "0a6600640032",
+            "0a55",
+            "0a00",
+            "0a66",
         ],
     )
     def test_invalid_segment_numbers(self, invalid_metadata):
@@ -396,7 +396,6 @@ class TestITPayload:
         session_id = "1003"
         sender_id = "+1234567890"
 
-        # Store only segments 0 and 2 (missing segment 1)
         SegmentCache.store_segment(
             session_id=session_id,
             sender_id=sender_id,
@@ -486,12 +485,10 @@ class TestITPayload:
             result, error = decode_and_publish(payload, "http")
 
             if seg_num < 2:
-                # First two segments should be cached
                 assert error is None
                 assert "Segment" in result and "received and cached" in result
                 assert mock_publish.call_count == 0
             else:
-                # Third segment completes the session
                 assert error is None
                 assert result == "Published"
                 mock_publish.assert_called_once()
