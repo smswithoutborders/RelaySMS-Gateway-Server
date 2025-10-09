@@ -140,8 +140,8 @@ class PayloadParser:
             }
 
             if len(metadata_bytes) == 6:
-                image_length = struct.unpack(">H", metadata_bytes[2:4])[0]
-                text_length = struct.unpack(">H", metadata_bytes[4:6])[0]
+                image_length = struct.unpack("<H", metadata_bytes[2:4])[0]
+                text_length = struct.unpack("<H", metadata_bytes[4:6])[0]
                 metadata["image_length"] = image_length
                 metadata["text_length"] = text_length
             else:

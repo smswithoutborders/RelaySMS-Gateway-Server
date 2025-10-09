@@ -177,7 +177,7 @@ class TestITPayload:
     @pytest.mark.parametrize(
         "payload, expected_type",
         [
-            ("042a0100200030" + base64.b64encode(b"content").decode(), "image-text"),
+            ("042a0120003000" + base64.b64encode(b"content").decode(), "image-text"),
             ("042a01" + base64.b64encode(b"subsequent").decode(), "image-text"),
             (base64.b64encode(b"regular content").decode(), "platform"),
             (base64.b64encode(b"\x00bridge").decode(), "bridge"),
@@ -191,7 +191,7 @@ class TestITPayload:
         "invalid_payload",
         [
             "042a",
-            "052a0100200030abc",
+            "052a0120003000abc",
             "04zzzzzzzzzzzz",
         ],
     )
@@ -203,7 +203,7 @@ class TestITPayload:
         "metadata_hex, expected",
         [
             (
-                "2a0100200030",
+                "2a0120003000",
                 {
                     "session_id": 42,
                     "segment_number": 0,
@@ -213,7 +213,7 @@ class TestITPayload:
                 },
             ),
             (
-                "0a2500640032",
+                "0a2564003200",
                 {
                     "session_id": 10,
                     "segment_number": 2,
@@ -223,7 +223,7 @@ class TestITPayload:
                 },
             ),
             (
-                "ff0303e800c8",
+                "ff03e803c800",
                 {
                     "session_id": 255,
                     "segment_number": 0,
@@ -272,7 +272,7 @@ class TestITPayload:
 
     def test_parse_it_payload_complete(self):
         """Test parsing complete IT payload for long form."""
-        payload = "042a0100200030" + base64.b64encode(b"test_content").decode()
+        payload = "042a0120003000" + base64.b64encode(b"test_content").decode()
         result = PayloadParser.parse_image_text_payload(payload)
 
         assert result is not None
@@ -299,9 +299,9 @@ class TestITPayload:
     @pytest.mark.parametrize(
         "invalid_metadata",
         [
-            "0a5500640032",
-            "0a0000640032",
-            "0a6600640032",
+            "0a5564003200",
+            "0a0064003200",
+            "0a6664003200",
             "0a55",
             "0a00",
             "0a66",
@@ -436,7 +436,7 @@ class TestITPayload:
         mock_publish.return_value = (mock_response, None)
 
         platform_content = base64.b64encode(b"platform_message").decode()
-        it_payload = "042a0100200030" + platform_content
+        it_payload = "042a0120003000" + platform_content
 
         payload = {
             "text": it_payload,
@@ -466,7 +466,8 @@ class TestITPayload:
             seg_info = (seg_num << 4) | 3
 
             if seg_num == 0:
-                metadata_bytes = bytes([4, session_id, seg_info, 0, 100, 0, 50])
+                # Little endian: 100 = 0x64 0x00, 50 = 0x32 0x00
+                metadata_bytes = bytes([4, session_id, seg_info, 100, 0, 50, 0])
             else:
                 metadata_bytes = bytes([4, session_id, seg_info])
 
@@ -507,7 +508,7 @@ class TestITPayload:
         bridge_content = bytes([BRIDGE_REQUEST_IDENTIFIER]) + b"bridge_data"
         bridge_b64 = base64.b64encode(bridge_content).decode()
 
-        metadata_hex = "042a0100200030"
+        metadata_hex = "042a0120003000"
         it_payload = metadata_hex + bridge_b64
 
         payload = {
