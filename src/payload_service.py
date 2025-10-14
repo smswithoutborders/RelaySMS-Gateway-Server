@@ -271,8 +271,8 @@ def decode_and_publish(
 
     payload_type = detect_payload_type(encoded_content)
 
-    logger.info("Detected payload type: %s from sender: %s", payload_type, sender_id)
-    logger.info("Payload content: %s", encoded_content)
+    logger.debug("Detected payload type: %s from sender: %s", payload_type, sender_id)
+    logger.debug("Payload content: %s", encoded_content)
 
     if payload_type == "image-text":
         logger.debug("Detected image-text payload from sender: %s", sender_id)

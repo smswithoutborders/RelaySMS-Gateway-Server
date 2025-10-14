@@ -43,7 +43,7 @@ class PayloadParser:
             True if the payload is a bridge request, False otherwise.
         """
         try:
-            decoded_bytes = base64.b64decode(payload, validate=True)
+            decoded_bytes = base64.b64decode(payload)
             return (
                 len(decoded_bytes) > 0 and decoded_bytes[0] == BRIDGE_REQUEST_IDENTIFIER
             )
@@ -103,9 +103,8 @@ class PayloadParser:
             return None
 
         try:
-            metadata_bytes = bytes.fromhex(metadata_hex)
-            session_id = metadata_bytes[0]
-            seg_info = metadata_bytes[1]
+            session_id = int(metadata_hex[0:2], 16)
+            seg_info = int(metadata_hex[2:4], 16)
 
             # Extract segment info from packed byte:
             # high nibble = segment_number, low nibble = total_segments
@@ -139,9 +138,9 @@ class PayloadParser:
                 "total_segments": total_segments,
             }
 
-            if len(metadata_bytes) == 6:
-                image_length = struct.unpack("<H", metadata_bytes[2:4])[0]
-                text_length = struct.unpack("<H", metadata_bytes[4:6])[0]
+            if len(metadata_hex) == 12:
+                image_length = int(metadata_hex[4:8], 16)
+                text_length = int(metadata_hex[8:12], 16)
                 metadata["image_length"] = image_length
                 metadata["text_length"] = text_length
             else:
