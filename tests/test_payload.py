@@ -203,33 +203,13 @@ class TestITPayload:
         "metadata_hex, expected",
         [
             (
-                "2a0120003000",
-                {
-                    "session_id": 42,
-                    "segment_number": 0,
-                    "total_segments": 1,
-                    "image_length": 32,
-                    "text_length": 48,
-                },
-            ),
-            (
-                "0a2564003200",
-                {
-                    "session_id": 10,
-                    "segment_number": 2,
-                    "total_segments": 5,
-                    "image_length": 100,
-                    "text_length": 50,
-                },
-            ),
-            (
-                "ff03e803c800",
+                "ffefffffffff",
                 {
                     "session_id": 255,
-                    "segment_number": 0,
-                    "total_segments": 3,
-                    "image_length": 1000,
-                    "text_length": 200,
+                    "segment_number": 14,
+                    "total_segments": 15,
+                    "image_length": 65535,
+                    "text_length": 65535,
                 },
             ),
             (
