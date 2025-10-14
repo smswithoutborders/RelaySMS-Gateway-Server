@@ -1,17 +1,17 @@
 """Decode and publish RelaySMS payloads."""
 
 import base64
-import logging
 import json
 from typing import Tuple, Optional, Union, Dict, Any
 
+from logutils import get_logger
 from src.grpc_publisher_client import publish_content
 from src.bridge_server_grpc_client import publish_bridge_content
 from src.utils import get_configs
 from src.payload_parser import PayloadParser
 from src.segment_cache import SegmentCache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BRIDGE_REQUEST_IDENTIFIER = 0
 TIMESTAMP_DIVISOR = 1000
