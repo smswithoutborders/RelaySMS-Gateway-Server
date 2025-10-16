@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-3.0-only
 """Payload parser for handling segmented messages with metadata."""
 
 import base64
@@ -8,28 +9,11 @@ from logutils import get_logger
 logger = get_logger(__name__)
 
 BRIDGE_REQUEST_IDENTIFIER = 0
-MAX_SEGMENTS = 15
+MAX_SEGMENTS = 255
 
 
 class PayloadParser:
     """Parser for payload format."""
-
-    @staticmethod
-    def _check_hex_prefix(payload: str, expected_prefix: str, min_length: int) -> bool:
-        """Check if payload starts with expected hex prefix.
-
-        Args:
-            payload: The payload string to check.
-            expected_prefix: The expected hex prefix (e.g., "04").
-            min_length: Minimum required payload length.
-
-        Returns:
-            True if payload meets criteria, False otherwise.
-        """
-        return (
-            len(payload) >= min_length
-            and payload[: len(expected_prefix)] == expected_prefix
-        )
 
     @staticmethod
     def is_bridge_payload(payload: str) -> bool:
@@ -54,9 +38,10 @@ class PayloadParser:
     def is_it_payload(payload: str) -> bool:
         """Detect if a payload is in image-text format.
 
-        Image-text (IT) payloads start with hex-encoded metadata with a "04" prefix:
-        - Short format: "04" + 4 hex chars (2 bytes: session_id + seg_info)
-        - Long format: "04" + 12 hex chars (6 bytes: session_id + seg_info + image_length + text_length)
+        Image-text (IT) payloads start with base64-encoded metadata with a "4" prefix:
+        - Short format: indicator(4)[1B] + session_id(1B) + segment_number(1B)
+        - Long format: indicator(4)[1B] + session_id(1B) + segment_number(1B)
+            + total_segments(1B) + image_length(2B) + text_length(2B)
 
         Args:
             payload: The payload string to check.
@@ -64,136 +49,87 @@ class PayloadParser:
         Returns:
             True if the payload appears to be IT format, False otherwise.
         """
-        try:
-            if not PayloadParser._check_hex_prefix(payload, "04", 6):
-                return False
-
-            if len(payload) >= 14:
-                try:
-                    bytes.fromhex(payload[2:14])
-                    return True
-                except (ValueError, TypeError):
-                    pass
-
-            try:
-                bytes.fromhex(payload[2:6])
-                return True
-            except (ValueError, TypeError):
-                return False
-
-        except (ValueError, TypeError, IndexError):
+        if len(payload) < 4:
             return False
 
+        try:
+            metadata_b64 = payload[:4]
+            metadata_bytes = base64.b64decode(metadata_b64)
+            if len(metadata_bytes) == 3 and metadata_bytes[0] == 4:
+                return True
+        except (ValueError, TypeError):
+            pass
+
+        return False
+
     @staticmethod
-    def parse_image_text_metadata(metadata_hex: str) -> Optional[Dict]:
-        """Parse the image-text metadata from hex string.
+    def parse_image_text_metadata(metadata_bytes: bytes) -> Optional[Dict]:
+        """Parse the image-text metadata from bytes.
 
         Args:
-            metadata_hex: Hex string containing metadata.
-                - 12 characters (6 bytes) for long form with image/text lengths
-                - 4 characters (2 bytes) for short form without image/text lengths
+            metadata_bytes: The metadata bytes to parse.
 
         Returns:
             Dict with parsed metadata fields or None if parsing fails.
         """
-        if len(metadata_hex) not in [4, 12]:
+        if len(metadata_bytes) not in [3, 8]:
             logger.error(
-                "Invalid metadata length: expected 4 or 12, got %d", len(metadata_hex)
+                "Invalid metadata length: expected 3 or 8, got %d", len(metadata_bytes)
             )
             return None
 
-        try:
-            metadata_bytes = bytes.fromhex(metadata_hex)
-            session_id = metadata_bytes[0]
-            seg_info = metadata_bytes[1]
+        _ = metadata_bytes[0]
+        session_id = metadata_bytes[1]
+        segment_number = metadata_bytes[2]
+        total_segments = 0
+        text_length = 0
+        image_length = 0
 
-            # Extract segment info from packed byte:
-            # high nibble = segment_number, low nibble = total_segments
-            segment_number = (seg_info >> 4) & 0x0F
-            total_segments = seg_info & 0x0F
-
-            if segment_number >= MAX_SEGMENTS or total_segments > MAX_SEGMENTS:
-                logger.error(
-                    "Invalid segment numbers: segment=%d, total=%d (max=%d)",
-                    segment_number,
-                    total_segments,
-                    MAX_SEGMENTS,
-                )
-                return None
+        if len(metadata_bytes) == 8 and segment_number == 0:
+            total_segments = metadata_bytes[3]
 
             if total_segments == 0:
-                logger.error("Invalid total_segments: cannot be 0")
+                logger.error("Total segments cannot be zero.")
                 return None
 
-            if segment_number >= total_segments:
-                logger.error(
-                    "Invalid segment_number %d >= total_segments %d",
-                    segment_number,
-                    total_segments,
-                )
-                return None
+            image_length = struct.unpack("<H", metadata_bytes[4:6])[0]
+            text_length = struct.unpack("<H", metadata_bytes[6:8])[0]
 
-            metadata = {
-                "session_id": session_id,
-                "segment_number": segment_number,
-                "total_segments": total_segments,
-            }
+        metadata = {
+            "session_id": session_id,
+            "segment_number": segment_number,
+            "total_segments": total_segments,
+        }
 
-            if len(metadata_bytes) == 6:
-                image_length = struct.unpack("<H", metadata_bytes[2:4])[0]
-                text_length = struct.unpack("<H", metadata_bytes[4:6])[0]
-                metadata["image_length"] = image_length
-                metadata["text_length"] = text_length
-            else:
-                metadata["image_length"] = 0
-                metadata["text_length"] = 0
+        metadata["image_length"] = image_length
+        metadata["text_length"] = text_length
 
-            logger.debug("Parsed metadata: %s", metadata)
-            return metadata
-
-        except (ValueError, struct.error) as e:
-            logger.error("Failed to parse metadata: %s", str(e))
-            return None
+        logger.debug("Parsed metadata: %s", metadata)
+        return metadata
 
     @staticmethod
     def parse_image_text_payload(payload: str) -> Optional[Tuple[Dict, str]]:
         """Parse a complete image-text payload into metadata and content.
 
-        Args:
-            payload: The full image-text payload string (prefix + metadata + content).
-                Format: "04" + metadata_hex + content
-                - Short format: "04" + 4 chars metadata = 6 chars total
-                - Long format: "04" + 12 chars metadata = 14 chars total
-
         Returns:
             Tuple of (metadata_dict, content_string) or None if parsing fails.
         """
         try:
-            if not PayloadParser._check_hex_prefix(payload, "04", 6):
-                logger.error("Payload is not in image-text format")
+            try:
+                metadata_b64 = payload[:4]
+                metadata_bytes = base64.b64decode(metadata_b64)
+                segment_number = metadata_bytes[2]
+                if segment_number > 0:
+                    content = payload[4:]
+                else:
+                    metadata_b64 = payload[:12]
+                    metadata_bytes = base64.b64decode(metadata_b64)
+                    content = payload[12:]
+            except (ValueError, TypeError):
+                logger.error("Failed to parse image-text payload: invalid base64")
                 return None
 
-            metadata_hex = None
-            content = None
-
-            if len(payload) >= 14:
-                try:
-                    metadata_hex = payload[2:14]
-                    bytes.fromhex(metadata_hex)
-                    content = payload[14:]
-                except (ValueError, TypeError):
-                    metadata_hex = None
-
-            if metadata_hex is None:
-                try:
-                    metadata_hex = payload[2:6]
-                    bytes.fromhex(metadata_hex)
-                    content = payload[6:]
-                except (ValueError, TypeError):
-                    logger.error("Could not determine metadata format")
-                    return None
-
-            metadata = PayloadParser.parse_image_text_metadata(metadata_hex)
+            metadata = PayloadParser.parse_image_text_metadata(metadata_bytes)
 
             if metadata is None:
                 return None

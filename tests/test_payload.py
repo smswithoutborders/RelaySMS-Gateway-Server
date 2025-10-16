@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 import base64
 import json
+import struct
 import pytest
 
 
@@ -174,25 +175,86 @@ class TestBridgePayloads:
 class TestITPayload:
     """Test Image-Text (IT) payload parsing functionality."""
 
+    @staticmethod
+    def _create_it_payload_short(
+        session_id: int, segment_number: int, content: str = ""
+    ) -> str:
+        """Create short form IT payload using struct.pack.
+
+        Args:
+            session_id: Session identifier (1 byte)
+            segment_number: Segment number (1 byte)
+            content: Optional content to append
+
+        Returns:
+            Base64-encoded IT payload string
+        """
+        metadata_bytes = struct.pack("BBB", 4, session_id, segment_number)
+        metadata_b64 = base64.b64encode(metadata_bytes).decode()
+        return metadata_b64 + content
+
+    @staticmethod
+    def _create_it_payload_long(
+        session_id: int,
+        segment_number: int,
+        total_segments: int,
+        image_length: int,
+        text_length: int,
+        content: str = "",
+    ) -> str:
+        """Create long form IT payload using struct.pack.
+
+        Args:
+            session_id: Session identifier (1 byte)
+            segment_number: Segment number (1 byte)
+            total_segments: Total segments (1 byte)
+            image_length: Image length (2 bytes, little endian)
+            text_length: Text length (2 bytes, little endian)
+            content: Optional content to append
+
+        Returns:
+            Base64-encoded IT payload string
+        """
+        metadata_bytes = struct.pack(
+            "<BBBBHH",
+            4,
+            session_id,
+            segment_number,
+            total_segments,
+            image_length,
+            text_length,
+        )
+        metadata_b64 = base64.b64encode(metadata_bytes).decode()
+        return metadata_b64 + content
+
     @pytest.mark.parametrize(
         "payload, expected_type",
         [
-            ("042a0120003000" + base64.b64encode(b"content").decode(), "image-text"),
-            ("042a01" + base64.b64encode(b"subsequent").decode(), "image-text"),
+            ("_create_it_payload_long", "image-text"),
+            ("_create_it_payload_short", "image-text"),
             (base64.b64encode(b"regular content").decode(), "platform"),
             (base64.b64encode(b"\x00bridge").decode(), "bridge"),
         ],
     )
     def test_payload_type_detection(self, payload, expected_type):
         """Test that different payload types are correctly detected."""
+        if payload == "_create_it_payload_long":
+            payload = self._create_it_payload_long(
+                42, 0, 1, 50, 30, base64.b64encode(b"content").decode()
+            )
+        elif payload == "_create_it_payload_short":
+            payload = self._create_it_payload_short(
+                42, 1, base64.b64encode(b"subsequent").decode()
+            )
+
         assert detect_payload_type(payload) == expected_type
 
     @pytest.mark.parametrize(
         "invalid_payload",
         [
-            "042a",
-            "052a0120003000abc",
-            "04zzzzzzzzzzzz",
+            "BAD",
+            base64.b64encode(b"\x05\x2a\x01").decode(),
+            "invalid_base64!@#",
         ],
     )
     def test_invalid_it_payload_format(self, invalid_payload):
@@ -200,91 +262,93 @@ class TestITPayload:
         assert detect_payload_type(invalid_payload) == "platform"
 
     @pytest.mark.parametrize(
-        "metadata_hex, expected",
+        "metadata_bytes, expected",
         [
             (
-                "ffefffffffff",
+                struct.pack("<BBBBHH", 4, 255, 0, 15, 65535, 65535),
                 {
                     "session_id": 255,
-                    "segment_number": 14,
+                    "segment_number": 0,
                     "total_segments": 15,
                     "image_length": 65535,
                     "text_length": 65535,
                 },
             ),
             (
-                "2a01",
+                struct.pack("BBB", 4, 42, 1),
                 {
                     "session_id": 42,
-                    "segment_number": 0,
-                    "total_segments": 1,
+                    "segment_number": 1,
+                    "total_segments": 0,
                     "image_length": 0,
                     "text_length": 0,
                 },
             ),
             (
-                "0a25",
+                struct.pack("BBB", 4, 10, 2),
                 {
                     "session_id": 10,
                     "segment_number": 2,
-                    "total_segments": 5,
+                    "total_segments": 0,
                     "image_length": 0,
                     "text_length": 0,
                 },
             ),
             (
-                "ff13",
+                struct.pack("BBB", 4, 255, 1),
                 {
                     "session_id": 255,
                     "segment_number": 1,
-                    "total_segments": 3,
+                    "total_segments": 0,
                     "image_length": 0,
                     "text_length": 0,
                 },
             ),
         ],
     )
-    def test_parse_it_metadata(self, metadata_hex, expected):
+    def test_parse_it_metadata(self, metadata_bytes, expected):
         """Test parsing of IT payload metadata."""
-        result = PayloadParser.parse_image_text_metadata(metadata_hex)
+        result = PayloadParser.parse_image_text_metadata(metadata_bytes)
         assert result is not None
         assert result == expected
 
     def test_parse_it_payload_complete(self):
         """Test parsing complete IT payload for long form."""
-        payload = "042a0120003000" + base64.b64encode(b"test_content").decode()
+        content = base64.b64encode(b"test_content").decode()
+        payload = self._create_it_payload_long(42, 0, 1, 50, 30, content)
         result = PayloadParser.parse_image_text_payload(payload)
 
         assert result is not None
-        metadata, content = result
+        metadata, parsed_content = result
         assert metadata["session_id"] == 42
         assert metadata["segment_number"] == 0
         assert metadata["total_segments"] == 1
-        assert base64.b64encode(b"test_content").decode() in content
+        assert metadata["image_length"] == 50
+        assert metadata["text_length"] == 30
+        assert content in parsed_content
 
     def test_parse_it_payload_subsequent_segment(self):
         """Test parsing complete IT payload for short form."""
-        payload = "042a13" + base64.b64encode(b"second_segment").decode()
+        content = base64.b64encode(b"second_segment").decode()
+        payload = self._create_it_payload_short(42, 1, content)
         result = PayloadParser.parse_image_text_payload(payload)
 
         assert result is not None
-        metadata, content = result
+        metadata, parsed_content = result
         assert metadata["session_id"] == 42
         assert metadata["segment_number"] == 1
-        assert metadata["total_segments"] == 3
+        assert metadata["total_segments"] == 0
         assert metadata["image_length"] == 0
         assert metadata["text_length"] == 0
-        assert base64.b64encode(b"second_segment").decode() in content
+        assert content in parsed_content
 
     @pytest.mark.parametrize(
         "invalid_metadata",
         [
-            "0a5564003200",
-            "0a0064003200",
-            "0a6664003200",
-            "0a55",
-            "0a00",
-            "0a66",
+            struct.pack("<BBBBHH", 4, 10, 0, 0, 100, 50),
+            b"\x04\x10",
+            b"\x04",
+            b"\x04\x10\x05\x03\x64",
         ],
     )
     def test_invalid_segment_numbers(self, invalid_metadata):
@@ -416,7 +480,7 @@ class TestITPayload:
         mock_publish.return_value = (mock_response, None)
 
         platform_content = base64.b64encode(b"platform_message").decode()
-        it_payload = "042a0120003000" + platform_content
+        it_payload = self._create_it_payload_long(42, 0, 1, 50, 30, platform_content)
 
         payload = {
             "text": it_payload,
@@ -443,18 +507,16 @@ class TestITPayload:
         sender = "+1234567890"
 
         for seg_num in range(3):
-            seg_info = (seg_num << 4) | 3
+            segment_content = f"seg{seg_num}"
 
             if seg_num == 0:
-                # Little endian: 100 = 0x64 0x00, 50 = 0x32 0x00
-                metadata_bytes = bytes([4, session_id, seg_info, 100, 0, 50, 0])
+                it_payload = self._create_it_payload_long(
+                    session_id, seg_num, 3, 100, 50, segment_content
+                )
             else:
-                metadata_bytes = bytes([4, session_id, seg_info])
-
-            metadata_hex = metadata_bytes.hex()
-
-            segment_content = f"seg{seg_num}"
-            it_payload = metadata_hex + segment_content
+                it_payload = self._create_it_payload_short(
+                    session_id, seg_num, segment_content
+                )
 
             payload = {
                 "text": it_payload,
@@ -488,8 +550,7 @@ class TestITPayload:
         bridge_content = bytes([BRIDGE_REQUEST_IDENTIFIER]) + b"bridge_data"
         bridge_b64 = base64.b64encode(bridge_content).decode()
 
-        metadata_hex = "042a0120003000"
-        it_payload = metadata_hex + bridge_b64
+        it_payload = self._create_it_payload_long(42, 0, 1, 50, 30, bridge_b64)
 
         payload = {
             "text": it_payload,
