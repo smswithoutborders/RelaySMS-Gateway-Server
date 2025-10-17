@@ -66,7 +66,7 @@ class SegmentCache:
 
             logger.debug(
                 "Stored segment %d/%d for session %s",
-                segment_number + 1,
+                segment_number,
                 total_segments,
                 session_id,
             )
