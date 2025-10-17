@@ -308,10 +308,10 @@ def decode_and_publish(
     if is_bridge_request:
         bridge_content = base64.b64encode(decoded_bytes[1:]).decode("utf-8")
         logger.debug(
-            "Publishing -\nbridge content: %s\nsender: %s\nimage length: %s",
+            "Publishing Bridge Payload:\ncontent: %s\nsender: %s\nimage length: %s",
             bridge_content,
             sender_id,
-            payload.get("image_length"),
+            payload.get("image_length") or 0,
         )
         publish_response, publish_error = publish_bridge_content(
             content=bridge_content,
@@ -319,7 +319,11 @@ def decode_and_publish(
             image_length=payload.get("image_length"),
         )
     else:
-        logger.debug("Publishing regular content for sender: %s", sender_id)
+        logger.debug(
+            "Publishing Platform Payload:\ncontent: %s\nsender: %s",
+            decoded_bytes,
+            sender_id,
+        )
         publish_response, publish_error = publish_content(
             content=encoded_content,
             sender=sender_id,
