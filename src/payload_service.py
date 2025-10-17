@@ -117,6 +117,7 @@ def _assemble_complete_payload(session_id: str, sender_id: str) -> Optional[str]
     try:
         segments_sorted = sorted(segments, key=lambda s: s.segment_number)
         assembled_content = b"".join(seg.content for seg in segments_sorted)
+        image_length = segments_sorted[0].image_length
 
         logger.debug(
             "Assembled %d segments for session %s, total length: %d bytes",
@@ -125,7 +126,7 @@ def _assemble_complete_payload(session_id: str, sender_id: str) -> Optional[str]
             len(assembled_content),
         )
 
-        return assembled_content.decode("utf-8")
+        return assembled_content.decode("utf-8"), image_length
 
     except Exception as e:
         logger.error(
@@ -197,7 +198,7 @@ def _handle_image_text_payload(
         total,
     )
 
-    assembled_content = _assemble_complete_payload(session_id, sender_id)
+    assembled_content, image_length = _assemble_complete_payload(session_id, sender_id)
 
     if not assembled_content:
         SegmentCache.delete_session(session_id, sender_id)
@@ -210,6 +211,7 @@ def _handle_image_text_payload(
         "address": sender_id,
         "date": date,
         "date_sent": date_sent,
+        "image_length": image_length,
     }
     publish_message, publish_error = decode_and_publish(
         payload=assembled_payload, request_origin=request_origin
@@ -307,7 +309,9 @@ def decode_and_publish(
         bridge_content = base64.b64encode(decoded_bytes[1:]).decode("utf-8")
         logger.debug("Publishing bridge content for sender: %s", sender_id)
         publish_response, publish_error = publish_bridge_content(
-            content=bridge_content, phone_number=sender_id
+            content=bridge_content,
+            phone_number=sender_id,
+            image_length=payload.get("image_length"),
         )
     else:
         logger.debug("Publishing regular content for sender: %s", sender_id)

@@ -73,9 +73,14 @@ def publish_bridge_content(content, phone_number, **kwargs):
             - error (Exception or None): None if successful, otherwise the encountered exception.
     """
     stub = kwargs["stub"]
+    image_length = kwargs.get("image_length")
 
     request = bridge_pb2.PublishContentRequest(
-        content=content, metadata={"From": phone_number}
+        content=content,
+        metadata={
+            "From": phone_number,
+            "Image-Length": str(image_length) if image_length else "",
+        },
     )
     response = stub.PublishContent(request)
     logger.info("Content published successfully.")

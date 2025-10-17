@@ -379,10 +379,12 @@ class TestITPayload:
             content=content.encode(),
         )
 
-        assembled = _assemble_complete_payload(session_id, sender_id)
+        result = _assemble_complete_payload(session_id, sender_id)
 
-        assert assembled is not None
-        assert assembled == content
+        assert result is not None
+        assembled_content, image_length = result
+        assert assembled_content == content
+        assert image_length == 100
 
     def test_multi_segment_assembly_ordered(self):
         """Test assembling payload from multiple segments in order."""
@@ -401,10 +403,12 @@ class TestITPayload:
                 content=f"part{i}".encode(),
             )
 
-        assembled = _assemble_complete_payload(session_id, sender_id)
+        result = _assemble_complete_payload(session_id, sender_id)
 
-        assert assembled is not None
-        assert assembled == "part0part1part2"
+        assert result is not None
+        assembled_content, image_length = result
+        assert assembled_content == "part0part1part2"
+        assert image_length == 100
 
     def test_multi_segment_assembly_unordered(self):
         """Test assembling payload from segments received out of order."""
@@ -429,10 +433,12 @@ class TestITPayload:
                 content=content.encode(),
             )
 
-        assembled = _assemble_complete_payload(session_id, sender_id)
+        result = _assemble_complete_payload(session_id, sender_id)
 
-        assert assembled is not None
-        assert assembled == "FIRSTMIDDLELAST"
+        assert result is not None
+        assembled_content, image_length = result
+        assert assembled_content == "FIRSTMIDDLELAST"
+        assert image_length == 100
 
     def test_assembly_with_missing_segments(self):
         """Test that assembly works with available segments even if some are missing."""
@@ -460,10 +466,12 @@ class TestITPayload:
             content=b"segment2",
         )
 
-        assembled = _assemble_complete_payload(session_id, sender_id)
+        result = _assemble_complete_payload(session_id, sender_id)
 
-        assert assembled is not None
-        assert assembled == "segment0segment2"
+        assert result is not None
+        assembled_content, image_length = result
+        assert assembled_content == "segment0segment2"
+        assert image_length == 100
 
     def test_assembly_empty_session(self):
         """Test assembly fails gracefully for non-existent session."""
