@@ -307,7 +307,12 @@ def decode_and_publish(
 
     if is_bridge_request:
         bridge_content = base64.b64encode(decoded_bytes[1:]).decode("utf-8")
-        logger.debug("Publishing bridge content for sender: %s", sender_id)
+        logger.debug(
+            "Publishing -\nbridge content: %s\nsender: %s\nimage length: %s",
+            bridge_content,
+            sender_id,
+            payload.get("image_length"),
+        )
         publish_response, publish_error = publish_bridge_content(
             content=bridge_content,
             phone_number=sender_id,
