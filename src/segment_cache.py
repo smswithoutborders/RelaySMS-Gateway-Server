@@ -3,6 +3,7 @@
 from typing import List, Tuple
 
 from logutils import get_logger
+from src.utils import obfuscate_sender_id
 from src.models import MessageSegments
 
 logger = get_logger(__name__)
@@ -48,9 +49,10 @@ class SegmentCache:
 
             if existing:
                 logger.debug(
-                    "Segment already exists for session %s, segment %d. Ignoring duplicate.",
+                    "Segment already exists for session %s, segment %d from sender %s, ignoring duplicate",
                     session_id,
                     segment_number,
+                    obfuscate_sender_id(sender_id),
                 )
                 return True
 
@@ -65,10 +67,10 @@ class SegmentCache:
             )
 
             logger.debug(
-                "Stored segment %d/%d for session %s",
+                "Stored segment %d for session %s from sender %s",
                 segment_number,
-                total_segments,
                 session_id,
+                obfuscate_sender_id(sender_id),
             )
             return True
 
@@ -134,9 +136,9 @@ class SegmentCache:
             is_complete = received_count == total_expected
 
             logger.debug(
-                "Session %s from sender %s: %d/%d segments received (complete=%s)",
+                "Session %s from sender %s status: %d/%d segments received (complete=%s)",
                 session_id,
-                sender_id,
+                obfuscate_sender_id(sender_id),
                 received_count,
                 total_expected,
                 is_complete,
@@ -172,7 +174,7 @@ class SegmentCache:
                 "Deleted %d segments for session %s from sender %s",
                 deleted_count,
                 session_id,
-                sender_id,
+                obfuscate_sender_id(sender_id),
             )
             return deleted_count
         except Exception as e:

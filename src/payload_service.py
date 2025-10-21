@@ -7,7 +7,7 @@ from typing import Tuple, Optional, Union, Dict, Any
 from logutils import get_logger
 from src.grpc_publisher_client import publish_content
 from src.bridge_server_grpc_client import publish_bridge_content
-from src.utils import get_configs
+from src.utils import get_configs, obfuscate_sender_id
 from src.payload_parser import PayloadParser
 from src.segment_cache import SegmentCache
 
@@ -20,21 +20,6 @@ DISABLE_BRIDGE_PAYLOADS_OVER_HTTP = (
     get_configs("DISABLE_BRIDGE_PAYLOADS_OVER_HTTP", default_value="false").lower()
     == "true"
 )
-
-
-def _obfuscate_sender_id(sender_id: str) -> str:
-    """Obfuscate sender ID for privacy in logs.
-
-    Args:
-        sender_id: The sender identifier to obfuscate.
-
-    Returns:
-        Obfuscated sender ID showing first 3 and last 2 characters.
-        Example: +1234567890 -> +12*****90
-    """
-    if not sender_id or len(sender_id) <= 5:
-        return "***"
-    return f"{sender_id[:3]}{'*' * (len(sender_id) - 5)}{sender_id[-2:]}"
 
 
 def _validate_payload_fields(payload: Dict[str, Any]) -> Optional[str]:
@@ -114,7 +99,7 @@ def _assemble_complete_payload(session_id: str, sender_id: str) -> Optional[str]
         logger.error(
             "No segments found for session %s for sender %s",
             session_id,
-            _obfuscate_sender_id(sender_id),
+            obfuscate_sender_id(sender_id),
         )
         return None
 
@@ -136,7 +121,7 @@ def _assemble_complete_payload(session_id: str, sender_id: str) -> Optional[str]
         logger.error(
             "Failed to assemble segments for session %s for sender %s: %s",
             session_id,
-            _obfuscate_sender_id(sender_id),
+            obfuscate_sender_id(sender_id),
             str(e),
         )
         return None
@@ -188,19 +173,19 @@ def _handle_image_text_payload(
 
     if not is_complete:
         logger.debug(
-            "Session %s partial: %d/%d segments received. Waiting for more...",
+            "Session %s partial: %d/%d segments received",
             session_id,
             received,
             total,
         )
         return (
             f"Segment {received}/{total} received and cached for session "
-            f"{session_id} and sender {_obfuscate_sender_id(sender_id)}.",
+            f"{session_id} and sender {obfuscate_sender_id(sender_id)}.",
             None,
         )
 
-    logger.info(
-        "Session %s complete (%d/%d segments). Assembling and publishing...",
+    logger.debug(
+        "Session %s complete (%d/%d segments), assembling payload",
         session_id,
         received,
         total,
@@ -229,16 +214,15 @@ def _handle_image_text_payload(
 
     if publish_error:
         logger.error(
-            "✖ Publishing failed for session %s: %s",
+            "Publishing failed for session %s: %s",
             session_id,
             publish_error,
         )
         return None, publish_error
 
     logger.info(
-        "✔ Image-text payload published successfully - Session: %s, Sender: %s",
+        "Image-text payload published successfully - Session: %s",
         session_id,
-        _obfuscate_sender_id(sender_id),
     )
     return publish_message, None
 
@@ -266,12 +250,12 @@ def decode_and_publish(
         try:
             payload = json.loads(payload)
         except json.JSONDecodeError as e:
-            logger.error("✖ Failed to parse JSON payload: %s", str(e))
+            logger.error("Failed to parse JSON payload: %s", str(e))
             return None, "Invalid JSON format"
 
     validation_error = _validate_payload_fields(payload)
     if validation_error:
-        logger.error("✖ Payload validation failed: %s", validation_error)
+        logger.error("Payload validation failed: %s", validation_error)
         return None, validation_error
 
     encoded_content = payload["text"]
@@ -281,11 +265,13 @@ def decode_and_publish(
 
     payload_type = detect_payload_type(encoded_content)
 
-    logger.debug("Detected payload type: %s from sender: %s", payload_type, sender_id)
-    logger.debug("Payload content: %s", encoded_content)
+    logger.debug(
+        "Processing %s payload from sender: %s",
+        payload_type,
+        obfuscate_sender_id(sender_id),
+    )
 
     if payload_type == "image-text":
-        logger.debug("Detected image-text payload from sender: %s", sender_id)
         return _handle_image_text_payload(
             encoded_content, sender_id, date, date_sent, request_origin
         )
@@ -293,11 +279,11 @@ def decode_and_publish(
     try:
         decoded_bytes = base64.b64decode(encoded_content)
     except (ValueError, TypeError) as e:
-        logger.error("✖ Base64 decoding failed: %s", str(e))
+        logger.error("Base64 decoding failed: %s", str(e))
         return None, "Invalid Base64-encoded payload"
 
     if not decoded_bytes:
-        logger.error("✖ Decoded payload is empty")
+        logger.error("Decoded payload is empty")
         return None, "Decoded payload is empty"
 
     is_bridge_request = payload_type == "bridge"
@@ -308,17 +294,16 @@ def decode_and_publish(
         and DISABLE_BRIDGE_PAYLOADS_OVER_HTTP
     ):
         logger.warning(
-            "✖ Bridge payload rejected: HTTP transport disabled for sender %s",
-            _obfuscate_sender_id(sender_id),
+            "Bridge payload rejected: HTTP transport disabled for sender %s",
+            obfuscate_sender_id(sender_id),
         )
         return None, "Bridge payloads over HTTP are restricted."
 
     if is_bridge_request:
         bridge_content = base64.b64encode(decoded_bytes[1:]).decode("utf-8")
         logger.debug(
-            "Publishing Bridge Payload:\ncontent: %s\nsender: %s\nimage length: %s",
-            bridge_content,
-            sender_id,
+            "Publishing bridge payload from sender: %s, image_length: %s",
+            obfuscate_sender_id(sender_id),
             payload.get("image_length") or 0,
         )
         publish_response, publish_error = publish_bridge_content(
@@ -328,9 +313,8 @@ def decode_and_publish(
         )
     else:
         logger.debug(
-            "Publishing Platform Payload:\ncontent: %s\nsender: %s",
-            decoded_bytes,
-            sender_id,
+            "Publishing platform payload from sender: %s",
+            obfuscate_sender_id(sender_id),
         )
         publish_response, publish_error = publish_content(
             content=encoded_content,
@@ -341,20 +325,19 @@ def decode_and_publish(
 
     if publish_error:
         logger.error(
-            "✖ gRPC publishing failed - Code: %s, Details: %s",
+            "gRPC publishing failed - Code: %s, Details: %s",
             publish_error.code(),
             publish_error.details(),
         )
         return None, publish_error.details()
 
     if not publish_response.success:
-        logger.error("✖ Publishing failed - Response: %s", publish_response.message)
+        logger.error("Publishing failed: %s", publish_response.message)
         return None, publish_response.message
 
     logger.info(
-        "✔ Payload published successfully - Origin: %s, Sender: %s, Type: %s",
+        "Payload published successfully - Origin: %s, Type: %s",
         request_origin,
-        _obfuscate_sender_id(sender_id),
         "bridge" if is_bridge_request else "platform",
     )
     return (

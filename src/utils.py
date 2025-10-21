@@ -180,3 +180,18 @@ def get_configs(config_name, strict=False, default_value=None):
     except ValueError as error:
         logger.error("Configuration '%s' is empty: %s", config_name, error)
         raise
+
+
+def obfuscate_sender_id(sender_id: str) -> str:
+    """Obfuscate sender ID for privacy in logs.
+
+    Args:
+        sender_id: The sender identifier to obfuscate.
+
+    Returns:
+        Obfuscated sender ID showing first 3 and last 2 characters.
+        Example: +1234567890 -> +12*****90
+    """
+    if not sender_id or len(sender_id) <= 5:
+        return "***"
+    return f"{sender_id[:3]}{'*' * (len(sender_id) - 5)}{sender_id[-2:]}"
