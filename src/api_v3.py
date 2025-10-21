@@ -160,7 +160,6 @@ def manage_gateway_client_tests(msisdn):
             response.headers["Link"] = link_header
         return response
 
-    # POST
     gateway_client = GatewayClients.get_or_none(msisdn=msisdn)
     if not gateway_client:
         return jsonify({"error": "Gateway client not found"})

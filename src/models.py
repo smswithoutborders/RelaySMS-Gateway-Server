@@ -5,7 +5,15 @@ Public License was not distributed with this file, see <https://www.gnu.org/lice
 """
 
 import datetime
-from peewee import Model, CharField, DateTimeField, DecimalField, ForeignKeyField
+from peewee import (
+    Model,
+    CharField,
+    DateTimeField,
+    DecimalField,
+    ForeignKeyField,
+    BlobField,
+    IntegerField,
+)
 from src.db import connect
 
 database = connect()
@@ -48,4 +56,28 @@ class ReliabilityTests(Model):
         table_name = "reliability_tests"
 
 
-database.create_tables([GatewayClients, ReliabilityTests], safe=True)
+class MessageSegments(Model):
+    """Model representing cached message segments."""
+
+    session_id = CharField()
+    sender_id = CharField()
+    segment_number = IntegerField()
+    total_segments = IntegerField()
+    image_length = IntegerField(default=0)
+    text_length = IntegerField(default=0)
+    content = BlobField()
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        """Meta class to define database connection."""
+
+        database = database
+        table_name = "message_segments"
+        indexes = (
+            (("session_id", "sender_id", "segment_number"), True),
+            (("created_at",), False),
+        )
+
+
+database.create_tables([GatewayClients, ReliabilityTests, MessageSegments], safe=True)
