@@ -111,7 +111,11 @@ def _assemble_complete_payload(session_id: str, sender_id: str) -> Optional[str]
     segments = SegmentCache.get_segments(session_id, sender_id)
 
     if not segments:
-        logger.error("No segments found for session %s", session_id)
+        logger.error(
+            "No segments found for session %s for sender %s",
+            session_id,
+            _obfuscate_sender_id(sender_id),
+        )
         return None
 
     try:
@@ -130,7 +134,10 @@ def _assemble_complete_payload(session_id: str, sender_id: str) -> Optional[str]
 
     except Exception as e:
         logger.error(
-            "Failed to assemble segments for session %s: %s", session_id, str(e)
+            "Failed to assemble segments for session %s for sender %s: %s",
+            session_id,
+            _obfuscate_sender_id(sender_id),
+            str(e),
         )
         return None
 
@@ -187,7 +194,8 @@ def _handle_image_text_payload(
             total,
         )
         return (
-            f"Segment {received}/{total} received and cached for session {session_id}",
+            f"Segment {received}/{total} received and cached for session "
+            f"{session_id} and sender {_obfuscate_sender_id(sender_id)}.",
             None,
         )
 

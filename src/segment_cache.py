@@ -73,9 +73,7 @@ class SegmentCache:
             return True
 
         except Exception as e:
-            logger.error(
-                "Failed to store segment for session %s: %s", session_id, str(e)
-            )
+            logger.error("Failed to store segment: %s", str(e))
             return False
 
     @staticmethod
@@ -100,12 +98,7 @@ class SegmentCache:
             )
             return list(segments)
         except Exception as e:
-            logger.error(
-                "Failed to retrieve segments for session %s from sender %s: %s",
-                session_id,
-                sender_id,
-                str(e),
-            )
+            logger.error("Failed to retrieve segments: %s", str(e))
             return []
 
     @staticmethod
@@ -152,12 +145,7 @@ class SegmentCache:
             return is_complete, received_count, total_expected
 
         except Exception as e:
-            logger.error(
-                "Failed to check session completeness for %s from sender %s: %s",
-                session_id,
-                sender_id,
-                str(e),
-            )
+            logger.error("Failed to check session completeness: %s", str(e))
             return False, 0, 0
 
     @staticmethod
@@ -180,7 +168,7 @@ class SegmentCache:
                 )
                 .execute()
             )
-            logger.info(
+            logger.debug(
                 "Deleted %d segments for session %s from sender %s",
                 deleted_count,
                 session_id,
@@ -188,10 +176,5 @@ class SegmentCache:
             )
             return deleted_count
         except Exception as e:
-            logger.error(
-                "Failed to delete session %s from sender %s: %s",
-                session_id,
-                sender_id,
-                str(e),
-            )
+            logger.error("Failed to delete session: %s", str(e))
             return 0
