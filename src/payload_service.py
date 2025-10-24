@@ -218,6 +218,9 @@ def _handle_image_text_payload(
         payload=assembled_payload, request_origin=request_origin
     )
 
+    if publish_error and publish_error in ["Bridge payloads over HTTP are restricted."]:
+        return None, publish_error
+
     SegmentCache.delete_session(session_id, sender_id)
 
     if publish_error:
