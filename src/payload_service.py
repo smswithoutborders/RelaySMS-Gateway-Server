@@ -191,6 +191,14 @@ def _handle_image_text_payload(
         total,
     )
 
+    logger.info(
+        "Segment %s/%s received and cached for session %s and sender %s.",
+        received,
+        total,
+        session_id,
+        obfuscate_sender_id(sender_id),
+    )
+
     assembled_content, image_length = _assemble_complete_payload(session_id, sender_id)
 
     if not assembled_content:
