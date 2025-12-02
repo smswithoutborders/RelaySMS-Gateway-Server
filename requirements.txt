@@ -1,4 +1,4 @@
-beautifulsoup4==4.14.2
+beautifulsoup4==4.14.3
 bleach==6.3.0
 email-reply-parser==0.5.12
 Flask==3.1.2
