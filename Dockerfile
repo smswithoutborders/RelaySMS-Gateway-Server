@@ -1,4 +1,4 @@
-FROM python:3.14.1-slim AS base
+FROM python:3.14.2-slim AS base
 
 WORKDIR /gateway_server
 
