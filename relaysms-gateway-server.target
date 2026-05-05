@@ -1,0 +1,7 @@
+[Unit]
+Description=RelaySMS Gateway Server
+Wants=relaysms-gateway-server-rest.service relaysms-gateway-server-imap.service relaysms-gateway-server-ftp.service
+After=relaysms-gateway-server-rest.service relaysms-gateway-server-imap.service relaysms-gateway-server-ftp.service
+
+[Install]
+WantedBy=multi-user.target
