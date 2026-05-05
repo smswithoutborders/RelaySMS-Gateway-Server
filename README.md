@@ -155,7 +155,7 @@ export PORT=5000
 - `MYSQL_USER`: MySQL username
 - `MYSQL_PASSWORD`: MySQL password
 - `MYSQL_DATABASE`: MySQL database (default: `relaysms_gateway_server`)
-- `SQLITE_DATABASE_PATH`: SQLite file path (default: `gateway_server.db`)
+- `SQLITE_DATABASE_PATH`: SQLite file path (default: `data/gateway_server.db`)
 
 ### IMAP Configuration
 

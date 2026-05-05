@@ -145,7 +145,7 @@ Choose between MySQL and SQLite:
 **SQLite (Default):**
 
 ```bash
-SQLITE_DATABASE_PATH=gateway_server.db
+SQLITE_DATABASE_PATH=data/gateway_server.db
 # Leave MySQL settings empty
 ```
 
@@ -216,7 +216,7 @@ ORIGINS=["http://localhost:3000","https://example.com"]
 
 - Installation: `/opt/relaysms/relaysms-gateway-server/`
 - Configuration: `/opt/relaysms/relaysms-gateway-server/.env`
-- Database: `/opt/relaysms/relaysms-gateway-server/gateway_server.db`
+- Database: `/opt/relaysms/relaysms-gateway-server/data/gateway_server.db`
 - FTP Storage: `/opt/relaysms/relaysms-gateway-server/data/ftp_file_store/`
 - Service files: `/etc/systemd/system/relaysms-gateway-server*`
 
