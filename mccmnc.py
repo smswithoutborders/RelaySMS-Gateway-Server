@@ -1,13 +1,6 @@
 """
-A module for matching Mobile Country Codes (MCC) and Mobile Network Codes (MNC) 
-against a JSON dataset scraped from https://www.mcc-mnc.com/.
-
-References:
-    - Original codebase: https://github.com/jbjulia/mcc-mnc
-        This module is based on the code from the GitHub repository linked above. 
-        It provides functionality to match MCCs and MNCs against a JSON dataset 
-        containing Public Land Mobile Network (PLMN) information scraped from the 
-        MCC-MNC website.
+A module for matching Mobile Country Codes (MCC) and Mobile Network Codes (MNC)
+against a JSON dataset from https://www.mcc-mnc.com/.
 """
 
 import json
@@ -16,10 +9,9 @@ import sys
 from urllib.error import URLError
 from urllib.request import urlopen
 
-from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-MCC_MNC_URL = "https://www.mcc-mnc.com/"
+MCC_MNC_API_URL = "https://mcc-mnc.com/api/v1/mcc-mnc.php"
 JSON_PATH = os.path.join(os.path.dirname(__file__), "mccmnc.json")
 
 
@@ -62,15 +54,23 @@ def find_matches(
 
 def update():
     """
-    Update the JSON data by scraping the MCC-MNC website.
+    Update the JSON data by fetching from the MCC-MNC API.
 
     Returns:
         None
     """
     try:
-        with urlopen(MCC_MNC_URL) as raw:
-            print(f"Decoding raw HTML from {MCC_MNC_URL}")
-            soup = BeautifulSoup(raw, features="html.parser")
+        print(f"Fetching MCC-MNC data from API: {MCC_MNC_API_URL}")
+        with urlopen(MCC_MNC_API_URL, timeout=30) as response:
+            api_data = json.loads(response.read().decode("utf-8"))
+
+        if "data" not in api_data:
+            print("Error: Invalid API response format")
+            sys.exit(1)
+
+        entries = api_data["data"]
+        total_entries = len(entries)
+        print(f"Received {total_entries} entries from API")
 
         if os.path.exists(JSON_PATH):
             print(f"Removing old JSON dictionary {JSON_PATH}.")
@@ -78,29 +78,26 @@ def update():
 
         print(f"Creating new JSON dictionary {JSON_PATH}.")
         json_data = {}
-        table = soup.find("table")
-        rows = table.find_all("tr")[1:]  # Skip the header
-        total_rows = len(rows)
+
         progress_bar = tqdm(
-            total=total_rows,
+            total=total_entries,
             bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
             colour="blue",
         )
 
-        for i, row in enumerate(rows, start=1):
-            cols = row.find_all("td")
-            mcc = cols[0].text
-            mnc = cols[1].text
+        for i, entry in enumerate(entries, start=1):
+            mcc = entry.get("mcc", "")
+            mnc = entry.get("mnc", "")
             plmn = mcc + mnc  # MCC + MNC
             json_data[plmn] = {
                 "MCC": mcc,
                 "MNC": mnc,
-                "ISO": cols[2].text,
-                "COUNTRY": cols[3].text,
-                "CC": cols[4].text,
-                "NETWORK": cols[5].text.strip() if cols[5].text else "unknown",
+                "ISO": entry.get("iso", ""),
+                "COUNTRY": entry.get("country", ""),
+                "CC": entry.get("countryCode", ""),
+                "NETWORK": entry.get("network", "unknown"),
             }
-            progress_bar.set_description(f"Processing row {i}/{total_rows}")
+            progress_bar.set_description(f"Processing entry {i}/{total_entries}")
             progress_bar.update(1)
 
         progress_bar.close()
@@ -109,6 +106,11 @@ def update():
             print(f"\nSaving JSON dictionary to {JSON_PATH}.")
             json.dump(json_data, json_file, indent=4, sort_keys=True)
 
+        print(f"Successfully updated MCC-MNC data with {len(json_data)} entries.")
+
     except URLError as e:
-        print(f"Error downloading file: {e}")
+        print(f"Error downloading from API: {e}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error parsing JSON response: {e}")
         sys.exit(1)
