@@ -1,0 +1,27 @@
+name: Build and Deploy (staging)
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          envs: PATH
+          script: |
+            set -e
+            sudo /opt/relaysms/relaysms-gateway-server/manage.sh update
