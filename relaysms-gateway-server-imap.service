@@ -1,0 +1,15 @@
+[Unit]
+Description=RelaySMS Gateway Server IMAP Listener
+PartOf=relaysms-gateway-server.target
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/relaysms/relaysms-gateway-server
+EnvironmentFile=/opt/relaysms/relaysms-gateway-server/.env
+ExecStart=/opt/relaysms/relaysms-gateway-server/venv/bin/python3 -u -m src.imap_listener
+Restart=on-failure
+SyslogIdentifier=relaysms-gateway-server-imap
+ReadWritePaths=/opt/relaysms/relaysms-gateway-server/data
+
+[Install]
+WantedBy=relaysms-gateway-server.target

@@ -4,126 +4,100 @@ RelaySMS Gateway Server is the online router that receives messages from gateway
 
 ## Table of Contents
 
-1. [Quick Start](#quick-start)
-2. [System Requirements](#system-requirements)
-3. [Installation](#installation)
-4. [Configuration](#configuration)
-5. [References](#references)
-6. [Contributing](#contributing)
-7. [License](#license)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Docker](#docker)
+- [Documentation](#documentation)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Quick Start
+## Requirements
 
-> [!NOTE]
->
-> Ensure all [system dependencies](#system-requirements) are installed before running setup scripts.
-
-For development, use the provided scripts:
-
-```bash
-source scripts/quick-setup.sh && ./scripts/quick-start.sh
-```
-
-- `quick-setup`:
-
-  - Creates a Python virtual environment (if missing)
-  - Installs Python dependencies
-  - Sets up a `.env` file
-  - Exports environment variables
-  - Downloads the `publisher` and `bridge` Protobuf files. (via `make publisher-proto` and `make bridge-proto` respectively)
-  - Compiles gRPC protos (via `make grpc-compile`)
-
-- `quick-start`:
-  - Launches the REST server, IMAP Listener, and the FTP Server.
-
-> [!WARNING]
->
-> This setup is for development only. Do not use in production.
-
-## System Requirements
-
-- **Database:** MySQL (≥ 8.0.28), MariaDB, or SQLite
 - **Python:** ≥ 3.8.10
-- **Virtual Environments:** Python venv
+- **Database:** MySQL (≥ 8.0.28), MariaDB, or SQLite
+- **External Services:**
+  - [RelaySMS Publisher](https://github.com/smswithoutborders/RelaySMS-Publisher) (required)
+  - [RelaySMS Bridge](https://github.com/smswithoutborders/RelaySMS-Bridge-Server) (required)
+  - IMAP Email Server (optional, for email monitoring)
 
-### Ubuntu Dependencies
+**Ubuntu Dependencies:**
 
 ```bash
-sudo apt update
-sudo apt install python3-dev libmysqlclient-dev apache2 apache2-dev make libapache2-mod-wsgi-py3
+sudo apt install python3-dev libmysqlclient-dev make
 ```
 
 ## Installation
 
-1. **Clone the repository:**
+### Production
 
-   ```bash
-   git clone https://github.com/smswithoutborders/RelaySMS-Gateway-Server.git
-   cd RelaySMS-Gateway-Server
-   ```
-
-2. **Create and activate a virtual environment:**
-
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-
-3. **Install dependencies:**
-
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Compile gRPC protos:**
-
-   ```bash
-   make grpc-compile
-   ```
-
-## Building and Running with Docker
-
-#### Build the Docker Image
+Quick install:
 
 ```bash
-docker build -t relaysms-gateway-server .
+curl -fsSL https://raw.githubusercontent.com/smswithoutborders/RelaySMS-Gateway-Server/main/install.sh | sudo bash
 ```
 
-#### Run the Container
-
-> [!TIP]
->
-> **For long-term development, you may want to run the container in detached mode (`-d`) and view logs with:**
->
-> ```bash
-> docker logs -f <container_id_or_name>
-> ```
+Manage services:
 
 ```bash
-docker run --rm \
+cd /opt/relaysms/relaysms-gateway-server
+./manage.sh {start|stop|restart|status|logs|update}
+```
+
+See [INSTALL.md](INSTALL.md) for manual installation and detailed configuration.
+
+### Development
+
+```bash
+# Setup environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Configure
+cp template.env .env
+# Edit .env as needed
+
+# Build
+make grpc-compile
+
+# Start services (use separate terminals)
+python3 -m src.imap_listener     # Terminal 1 (optional)
+python3 -m src.ftp_server        # Terminal 2
+make start-rest-api              # Terminal 3
+```
+
+**Quick Development Setup:**
+
+```bash
+./scripts/quick-setup.sh && ./scripts/quick-start.sh
+```
+
+> [!WARNING]
+> Quick setup is for development only. Do not use in production.
+
+## Docker
+
+### Build the Docker Image
+
+```bash
+docker build -t relaysms-gateway-server:latest .
+```
+
+### Run the Container
+
+```bash
+docker run -d \
+  --name relaysms-gateway-server \
   --env-file .env \
   -p 5000:5000 -p 5001:5001 \
   -p 2222:2222 -p 60000-65000:60000-65000 \
-  -v $(pwd)/ftp_file_store:/gateway_server/ftp_file_store \
-  relaysms-gateway-server
+  -v $(pwd)/data:/gateway_server/data \
+  relaysms-gateway-server:latest
 ```
 
 > [!TIP]
->
-> - To run in detached mode:
->   ```bash
->   docker run -d \
->     --name relaysms-gateway-server \
->     --env-file .env \
->     -p 5000:5000 -p 5001:5001 \
->     -p 2222:2222 -p 60000-65000:60000-65000 \
->     -v $(pwd)/ftp_file_store:/gateway_server/ftp_file_store \
->     relaysms-gateway-server
->   ```
->   Then view logs with:
->   ```bash
->   docker logs -f relaysms-gateway-server
->   ```
+> Update `HOST=0.0.0.0` in `.env` for external container access.
 
 ---
 
@@ -160,10 +134,16 @@ export PORT=5000
 - `PUBLISHER_GRPC_HOST`: Publisher gRPC server host (default: `127.0.0.1`)
 - `PUBLISHER_GRPC_PORT`: Publisher gRPC server port (default: `6000`)
 
+> [!IMPORTANT]
+> RelaySMS Publisher must be installed and running. See [RelaySMS Publisher Installation](https://github.com/smswithoutborders/RelaySMS-Publisher/blob/main/INSTALL.md)
+
 ### Bridge gRPC
 
 - `BRIDGE_GRPC_HOST`: Bridge gRPC server host (default: `127.0.0.1`)
 - `BRIDGE_GRPC_PORT`: Bridge gRPC server port (default: `10000`)
+
+> [!IMPORTANT]
+> RelaySMS Bridge must be installed and running. See [RelaySMS Bridge Installation](https://github.com/smswithoutborders/RelaySMS-Bridge-Server/blob/main/INSTALL.md)
 
 ### CORS
 
@@ -175,7 +155,7 @@ export PORT=5000
 - `MYSQL_USER`: MySQL username
 - `MYSQL_PASSWORD`: MySQL password
 - `MYSQL_DATABASE`: MySQL database (default: `relaysms_gateway_server`)
-- `SQLITE_DATABASE_PATH`: SQLite file path (default: `gateway_server.db`)
+- `SQLITE_DATABASE_PATH`: SQLite file path (default: `data/gateway_server.db`)
 
 ### IMAP Configuration
 
@@ -184,6 +164,11 @@ export PORT=5000
 - `IMAP_USERNAME`: IMAP username
 - `IMAP_PASSWORD`: IMAP password
 - `MAIL_FOLDER`: Mail folder to monitor (default: `INBOX`)
+
+> [!NOTE]
+> IMAP configuration is optional. Required only if you want to monitor emails for incoming messages.
+>
+> **Gmail Setup:** Enable IMAP in settings and create an App Password at <https://myaccount.google.com/apppasswords>. See [INSTALL.md](INSTALL.md#imap-email-server-optional) for details.
 
 ### FTP Configuration
 
@@ -196,7 +181,7 @@ export PORT=5000
 - `FTP_WRITE_LIMIT`: FTP write limit in bytes (default: `51200`)
 - `FTP_MAX_CON`: Maximum FTP connections (default: `256`)
 - `FTP_MAX_CON_PER_IP`: Maximum FTP connections per IP (default: `5`)
-- `FTP_DIRECTORY`: FTP directory path (default: `ftp_file_store`)
+- `FTP_DIRECTORY`: FTP directory path (default: `data/ftp_file_store`)
 
 ### Security
 
@@ -207,11 +192,11 @@ export PORT=5000
 
 - `LOG_LEVEL`: Logging level (default: `info`)
 
-## References
+## Documentation
 
-- REST API Resources:
-  - [API V3](docs/api_v3.md)
-- [Gateway Client CLI](docs/gateway_clients_cli.md)
+- [Installation Guide](INSTALL.md) - Detailed setup instructions
+- [API V3](docs/api_v3.md) - REST API documentation
+- [Gateway Client CLI](docs/gateway_clients_cli.md) - CLI documentation
 
 ## Contributing
 

@@ -1,0 +1,15 @@
+[Unit]
+Description=RelaySMS Gateway Server REST API
+PartOf=relaysms-gateway-server.target
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/relaysms/relaysms-gateway-server
+EnvironmentFile=/opt/relaysms/relaysms-gateway-server/.env
+ExecStart=/opt/relaysms/relaysms-gateway-server/venv/bin/python3 -m gunicorn -w 4 -b ${HOST}:${PORT} --log-level=info --access-logfile=- --threads 15 --timeout 30 main:app
+Restart=on-failure
+SyslogIdentifier=relaysms-gateway-server-rest
+ReadWritePaths=/opt/relaysms/relaysms-gateway-server/data
+
+[Install]
+WantedBy=relaysms-gateway-server.target
